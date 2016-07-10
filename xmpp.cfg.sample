@@ -1,0 +1,6 @@
+[xmpp]
+jid = account@jabber.server
+password = secret
+room = room@jabber.server
+nick = Me
+key = the-key
