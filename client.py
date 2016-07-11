@@ -125,9 +125,8 @@ class Client(sleekxmpp.ClientXMPP):
 						body = self.decode(data)
 				except Exception as e:
 					print("exception while decoding: %s" % e)
-			if body.startswith(self.nick):
-				if len(body) <= len(self.nick) + 2:
-					return
+			if body.startswith("%s: " % self.nick) \
+					and len(body) <= len(self.nick) + 2:
 				text = body[len(self.nick) + 1:].strip()
 				for listener in self.mention_listeners:
 					listener(msg=text, nick=nick, jid=jid,
