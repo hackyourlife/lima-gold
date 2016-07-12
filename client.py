@@ -185,8 +185,9 @@ class Client(sleekxmpp.ClientXMPP):
 			for listener in self.offline_listeners:
 				listener(jid=fulljid, nick=nick)
 
-	def muc_send(self, msg):
-		if self.encrypt and self.key is not None:
+	def muc_send(self, msg, enc=None):
+		if (enc is None and self.encrypt or enc) \
+				and self.key is not None:
 			plain = '[Diese Nachricht ist nur für ' \
 					'Lima-Gold-Mitglieder ' \
 					'lesbar. Mehr auf lima-city.de/gold]'

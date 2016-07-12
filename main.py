@@ -19,7 +19,8 @@ def show(msg):
 	sys.stdout.flush()
 
 def print_help():
-	show("commands: /help /quit /encrypt /plain /status")
+	print("commands: /help /quit /encrypt /plain /status /msg /enc /dec " \
+			"/encs /encr /say /me")
 
 xmpp = None
 if __name__ == "__main__":
@@ -98,8 +99,65 @@ if __name__ == "__main__":
 				xmpp.encrypt = False
 				PROMPT = "%s> " % nick
 			elif msg == "/status":
-				print("encryption %s" % ("enabled" if
+				print("key %s, encryption %s" % ("available" if
+						xmpp.key is not None else
+						"not available", "enabled" if
 						xmpp.encrypt else "disabled"))
+			elif msg.startswith("/msg "):
+				nick, text = None, None
+				try:
+					nick = msg[5:msg[5:].index(" ") + 5] \
+							.strip()
+					text = msg[5 + len(nick) + 1:].strip()
+				except ValueError as e:
+					print("syntax error")
+				if nick is not None:
+					xmpp.msg_send(nick, text, True)
+			elif msg.startswith("/enc "):
+				text = msg[5:].strip()
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						data = xmpp.encode(text)
+						print(data)
+					except Exception as e:
+						print("exception: %s" % e)
+			elif msg.startswith("/dec "):
+				text = msg[5:].strip()
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						data = xmpp.decode(text)
+						print("'%s'" % data)
+					except Exception as e:
+						print("exception: %s" % e)
+			elif msg.startswith("/encs "):
+				text = msg[6:].strip()
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						xmpp.muc_send(text, enc=True)
+					except Exception as e:
+						print("exception: %s" % e)
+			elif msg.startswith("/encr "):
+				text = msg[6:].strip()
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						data = xmpp.encode(text)
+						xmpp.muc_send(data, enc=False)
+						print("%s> %s" % (nick, data))
+					except Exception as e:
+						print("exception: %s" % e)
+			elif msg.startswith("/say "):
+				text = msg[5:].strip()
+				xmpp.muc_send(text)
+			elif msg[0] == "/" and not msg.startswith("/me "):
+				print("unknown command")
 			else:
 				xmpp.muc_send(msg)
 
