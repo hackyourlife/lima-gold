@@ -18,8 +18,9 @@ def decode(key, msg):
 	msg = raw[AES.block_size:]
 	aes = AES.new(key, AES.MODE_CBC, iv)
 	data = aes.decrypt(msg)
-	print("iv: %s" % " ".join([ "%02x" % x for x in iv ]))
-	print("msg: %s" % " ".join([ "%02x" % x for x in msg ]))
+	print("key:  %s" % " ".join([ "%02x" % x for x in key ]))
+	print("iv:   %s" % " ".join([ "%02x" % x for x in iv ]))
+	print("msg:  %s" % " ".join([ "%02x" % x for x in msg ]))
 	print("data: %s" % " ".join([ "%02x" % x for x in data ]))
 	return data[:-data[-1]]
 
