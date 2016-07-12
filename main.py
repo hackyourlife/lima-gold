@@ -12,15 +12,24 @@ logger = logging.getLogger(__name__)
 
 # clear current line, output text, show input line again
 # FIXME: strip escape sequences from msg
-PROMPT = '> '
+PROMPT = '%s%s '
+mode = '>'
+
+PLAIN = '>'
+STEALTH = '$'
+GOLD = '#'
+
+def prompt():
+	return PROMPT % (nick, mode)
+
 def show(msg):
 	line = readline.get_line_buffer()
-	sys.stdout.write("\r\033[K%s\r\n%s%s" % (msg, PROMPT, line))
+	sys.stdout.write("\r\033[K%s\r\n%s%s" % (msg, prompt(), line))
 	sys.stdout.flush()
 
 def print_help():
-	print("commands: /help /quit /encrypt /plain /status /msg /enc /dec " \
-			"/encs /encr /say /me")
+	print("commands: /help /quit /encrypt /plain /stealth /gold /status " \
+			"/msg /enc /dec /encs /encr /q /say /me")
 
 xmpp = None
 if __name__ == "__main__":
@@ -39,12 +48,13 @@ if __name__ == "__main__":
 	except:
 		key = None
 
-	PROMPT = "%s%s " % (nick, "#" if key is not None else ">")
+	mode = GOLD if key is not None else PLAIN
 
 	xmpp = Client(jid, password, room, nick, key)
 	xmpp.register_plugin("xep_0030") # Service Discovery
 	xmpp.register_plugin("xep_0045") # Multi-User Chat
 	xmpp.register_plugin("xep_0199") # XMPP Ping
+	xmpp.register_plugin("encrypt-im") # encrypted stealth MUC
 
 	def muc_msg(msg, nick, jid, role, affiliation):
 		if msg.startswith("/me "):
@@ -79,7 +89,7 @@ if __name__ == "__main__":
 	readline.read_init_file()
 	try:
 		while True:
-			line = input(PROMPT)
+			line = input(prompt())
 			if not line:
 				continue
 			msg = line.strip()
@@ -89,20 +99,27 @@ if __name__ == "__main__":
 				print_help()
 			elif msg == "/quit":
 				break
-			elif msg == "/encrypt":
+			elif msg == "/encrypt" or msg == "/gold":
 				if xmpp.key is None:
 					print("no encryption key set")
 				else:
 					xmpp.encrypt = True
-					PROMPT = "%s# " % nick
+					mode = GOLD
 			elif msg == "/plain":
 				xmpp.encrypt = False
-				PROMPT = "%s> " % nick
+				mode = PLAIN
+			elif msg == "/stealth":
+				if xmpp.key is None:
+					print("no encryption key set")
+				else:
+					mode = STEALTH
 			elif msg == "/status":
-				print("key %s, encryption %s" % ("available" if
+				print("key %s, mode is %s" % ("available" if
 						xmpp.key is not None else
-						"not available", "enabled" if
-						xmpp.encrypt else "disabled"))
+						"not available", "plaintext" if
+						mode == PLAIN else "gold" if
+						mode == GOLD else "stealth" if
+						mode == STEALTH else "strange"))
 			elif msg.startswith("/msg "):
 				nick, text = None, None
 				try:
@@ -142,6 +159,18 @@ if __name__ == "__main__":
 						xmpp.muc_send(text, enc=True)
 					except Exception as e:
 						print("exception: %s" % e)
+			elif msg.startswith("/q "):
+				text = msg[3:].strip()
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						xmpp.muc_send(text,
+								stealth=True)
+					except Exception as e:
+						import traceback
+						print("exception: %s" % e)
+						traceback.print_exc()
 			elif msg.startswith("/encr "):
 				text = msg[6:].strip()
 				if xmpp.key is None:
@@ -159,7 +188,10 @@ if __name__ == "__main__":
 			elif msg[0] == "/" and not msg.startswith("/me "):
 				print("unknown command")
 			else:
-				xmpp.muc_send(msg)
+				if mode == STEALTH:
+					xmpp.muc_send(msg, stealth=True)
+				else:
+					xmpp.muc_send(msg)
 
 	except KeyboardInterrupt: pass
 	except EOFError: pass
