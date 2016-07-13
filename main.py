@@ -10,8 +10,6 @@ from client import Client
 
 logger = logging.getLogger(__name__)
 
-# clear current line, output text, show input line again
-# FIXME: strip escape sequences from msg
 PROMPT = '%s%s '
 mode = '>'
 
@@ -22,6 +20,8 @@ GOLD = '#'
 def prompt():
 	return PROMPT % (nick, mode)
 
+# clear current line, output text, show input line again
+# FIXME: strip escape sequences from msg
 def show(msg):
 	line = readline.get_line_buffer()
 	sys.stdout.write("\r\033[K%s\r\n%s%s" % (msg, prompt(), line))
@@ -29,7 +29,7 @@ def show(msg):
 
 def print_help():
 	print("commands: /help /quit /encrypt /plain /stealth /gold /status " \
-			"/msg /enc /dec /encs /encr /q /say /me")
+			"/msg /enc /dec /encs /encr /q /p /say /me")
 
 xmpp = None
 if __name__ == "__main__":
@@ -177,9 +177,10 @@ if __name__ == "__main__":
 						xmpp.muc_send(text,
 								stealth=True)
 					except Exception as e:
-						import traceback
 						print("exception: %s" % e)
-						traceback.print_exc()
+			elif msg.startswith("/p "):
+				text = msg[3:].strip()
+				xmpp.muc_send(text, enc=False)
 			elif msg.startswith("/encr "):
 				text = msg[6:].strip()
 				if xmpp.key is None:
