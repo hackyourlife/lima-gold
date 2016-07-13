@@ -8,6 +8,24 @@ import logging
 import readline
 from client import Client
 
+import datetime
+
+_TIME_FORMAT = '%Y%m%dT%H:%M:%S'
+
+def time(at=None):
+	"""Stringify time in ISO 8601 format."""
+	if not at:
+		at = utcnow()
+	if type(at) == float:
+		at = datetime.datetime.fromtimestamp(at)
+	st = at.strftime(_TIME_FORMAT)
+	tz = at.tzinfo.tzname(None) if at.tzinfo else 'UTC'
+	st += ('Z' if tz == 'UTC' else tz)
+	return st
+
+def utcnow():
+	return datetime.datetime.utcnow()
+
 logger = logging.getLogger(__name__)
 
 PROMPT = '%s%s '
@@ -18,8 +36,11 @@ PLAIN = '>'
 STEALTH = '$'
 GOLD = '#'
 
+xmpp = None
+
 def prompt():
-	return PROMPT % (nick, mode)
+	global xmpp
+	return PROMPT % (xmpp.nick, mode)
 
 # clear current line, output text, show input line again
 # FIXME: strip escape sequences from msg
@@ -138,7 +159,8 @@ if __name__ == "__main__":
 	room = config.get("xmpp", "room")
 	nick = config.get("xmpp", "nick")
 	key = config.get("xmpp", "key", fallback=None)
-	enable_bell = config.getboolean("xmpp", "bell", fallback=False)
+	logfile_name = config.get("client", "logfile", fallback="xmpp.log")
+	enable_bell = config.getboolean("client", "bell", fallback=False)
 
 	mode = GOLD if key is not None else PLAIN
 
@@ -148,6 +170,28 @@ if __name__ == "__main__":
 	xmpp.register_plugin("xep_0199") # XMPP Ping
 	xmpp.register_plugin("encrypt-im") # encrypted stealth MUC
 
+	logfile = open(logfile_name, "a")
+
+	def log_msg(msgtype, msg, nick):
+		t = time()
+		lines = msg.count("\n")
+		line = "%sR %s %03d <%s> %s" % (msgtype, t, lines, nick, msg)
+		try:
+			logfile.write("%s\n" % line)
+			logfile.flush()
+		except Exception as e:
+			show("exception while writing log: %s" % e)
+
+	def log_status(info):
+		t = time()
+		lines = info.count("\n")
+		line = "MI %s %03d %s" % (t, lines, info)
+		try:
+			logfile.write("%s\n" % line)
+			logfile.flush()
+		except Exception as e:
+			show("exception while writing log: %s" % e)
+
 	def muc_msg(msg, nick, jid, role, affiliation, stealth):
 		if enable_bell:
 			sys.stdout.write("\007")
@@ -156,19 +200,23 @@ if __name__ == "__main__":
 				show("$ *** %s %s" % (nick, msg[4:]))
 			else:
 				show("$ <%s> %s" % (nick, msg))
+			log_msg("Q", msg, nick)
 		else:
 			if msg.startswith("/me "):
 				show("*** %s %s" % (nick, msg[4:]))
 			else:
 				show("<%s> %s" % (nick, msg))
+			log_msg("M", msg, nick)
 
 	def muc_mention(msg, nick, jid, role, affiliation, stealth):
 		if enable_bell:
 			sys.stdout.write("\007")
 		if stealth:
 			show("$ <<<%s>>> %s" % (nick, msg))
+			log_msg("Q", "%s: %s" % (xmpp.nick, msg), nick)
 		else:
 			show("<<<%s>>> %s" % (nick, msg))
+			log_msg("M", "%s: %s" % (xmpp.nick, msg), nick)
 
 	def priv_msg(msg, jid):
 		if enable_bell:
@@ -177,15 +225,21 @@ if __name__ == "__main__":
 
 	def muc_online(jid, nick, role, affiliation, localjid):
 		show("*** online: %s (%s; %s)" % (nick, jid, role))
+		log_status("%s <%s> has joined" % (nick, jid))
 
 	def muc_offline(jid, nick):
 		show("*** offline: %s" % nick)
+		log_status("%s has left" % nick)
+
+	def muc_joined():
+		log_status('You have joined as "%s"' % xmpp.nick)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
 	xmpp.add_online_listener(muc_online)
 	xmpp.add_offline_listener(muc_offline)
 	xmpp.add_private_listener(priv_msg)
+	xmpp.add_init_complete_listener(muc_joined)
 
 	if xmpp.connect():
 		xmpp.process(block=False)
@@ -267,6 +321,7 @@ if __name__ == "__main__":
 				else:
 					try:
 						xmpp.muc_send(text, enc=True)
+						log_msg("M", text, xmpp.nick)
 					except Exception as e:
 						print("exception: %s" % e)
 			elif msg.startswith("/q "):
@@ -277,11 +332,13 @@ if __name__ == "__main__":
 					try:
 						xmpp.muc_send(text,
 								stealth=True)
+						log_msg("Q", text, xmpp.nick)
 					except Exception as e:
 						print("exception: %s" % e)
 			elif msg.startswith("/p "):
 				text = msg[3:].strip()
 				xmpp.muc_send(text, enc=False)
+				log_msg("M", text, xmpp.nick)
 			elif msg.startswith("/encr "):
 				text = msg[6:].strip()
 				if xmpp.key is None:
@@ -291,11 +348,14 @@ if __name__ == "__main__":
 						data = xmpp.encode(text)
 						xmpp.muc_send(data, enc=False)
 						print("%s> %s" % (nick, data))
+						log_msg("M", data, xmpp.nick)
 					except Exception as e:
 						print("exception: %s" % e)
 			elif msg.startswith("/say "):
 				text = msg[5:].strip()
 				xmpp.muc_send(text)
+				log_msg("Q" if mode == STEALTH else "M", msg,
+						xmpp.nick)
 			elif msg == "/bell":
 				print("bell is %s" % ("enabled" if enable_bell
 					else "disabled"))
@@ -314,8 +374,11 @@ if __name__ == "__main__":
 			else:
 				if mode == STEALTH:
 					xmpp.muc_send(msg, stealth=True)
+					log_msg("Q", msg, xmpp.nick)
 				else:
 					xmpp.muc_send(msg)
+					log_msg("Q" if mode == STEALTH else "M",
+							msg, xmpp.nick)
 
 	except KeyboardInterrupt: pass
 	except EOFError: pass
