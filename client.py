@@ -117,12 +117,14 @@ class Client(sleekxmpp.ClientXMPP):
 			if not self.online:
 				return
 			body = msg['body']
+			stealth = False
 			if len(msg['encrypted']['content']) != 0:
 				if self.key is None:
 					return
 				data = msg['encrypted']['content']
 				try:
 					body = self.decode(data)
+					stealth = True
 				except Exception as e:
 					print("exception while decoding: %s" % e)
 			if len(body) == 0:
@@ -143,12 +145,14 @@ class Client(sleekxmpp.ClientXMPP):
 				for listener in self.mention_listeners:
 					listener(msg=text, nick=nick, jid=jid,
 							role=role,
-							affiliation=affiliation)
+							affiliation=affiliation,
+							stealth=stealth)
 			else:
 				for listener in self.message_listeners:
 					listener(msg=body, nick=nick,
 							jid=jid, role=role,
-							affiliation=affiliation)
+							affiliation=affiliation,
+							stealth=stealth)
 
 	def message(self, msg):
 		if msg['type'] in ('chat', 'normal'):

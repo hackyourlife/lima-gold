@@ -56,14 +56,23 @@ if __name__ == "__main__":
 	xmpp.register_plugin("xep_0199") # XMPP Ping
 	xmpp.register_plugin("encrypt-im") # encrypted stealth MUC
 
-	def muc_msg(msg, nick, jid, role, affiliation):
-		if msg.startswith("/me "):
-			show("*** %s %s" % (nick, msg[4:]))
+	def muc_msg(msg, nick, jid, role, affiliation, stealth):
+		if stealth:
+			if msg.startswith("/me "):
+				show("$ *** %s %s" % (nick, msg[4:]))
+			else:
+				show("$ <%s> %s" % (nick, msg))
 		else:
-			show("<%s> %s" % (nick, msg))
+			if msg.startswith("/me "):
+				show("*** %s %s" % (nick, msg[4:]))
+			else:
+				show("<%s> %s" % (nick, msg))
 
-	def muc_mention(msg, nick, jid, role, affiliation):
-		show("<<<%s>>> %s" % (nick, msg))
+	def muc_mention(msg, nick, jid, role, affiliation, stealth):
+		if stealth:
+			show("$ <<<%s>>> %s" % (nick, msg))
+		else:
+			show("<<<%s>>> %s" % (nick, msg))
 
 	def priv_msg(msg, jid):
 		show("<PRIV#%s> %s" % (jid, msg))
