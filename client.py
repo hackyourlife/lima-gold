@@ -23,7 +23,7 @@ class Client(sleekxmpp.ClientXMPP):
 	init_complete_listeners = []
 	participants = {}
 
-	def __init__(self, jid, password, room, nick, key, log=None):
+	def __init__(self, jid, password, room, nick, key=None, log=None):
 		sleekxmpp.ClientXMPP.__init__(self, jid, password)
 
 		self.room = room
@@ -126,7 +126,8 @@ class Client(sleekxmpp.ClientXMPP):
 					body = self.decode(data)
 					stealth = True
 				except Exception as e:
-					print("exception while decoding: %s" % e)
+					self.log.warn("exception while " \
+							"decoding: %s" % e)
 			if len(body) == 0:
 				return
 			if self.key is not None:
@@ -138,8 +139,11 @@ class Client(sleekxmpp.ClientXMPP):
 						data = span.attrib.get('data')
 						body = self.decode(data)
 				except Exception as e:
-					print("exception while decoding: %s" % e)
-			if body.startswith("%s: " % self.nick) \
+					self.log.warn("exception while " \
+							"decoding lima gold: " \
+							"%s" % e)
+			if body.startswith("%s:" % self.nick) or \
+					body.startswith("%s " % self.nick) \
 					and len(body) > len(self.nick) + 2:
 				text = body[len(self.nick) + 1:].strip()
 				for listener in self.mention_listeners:
