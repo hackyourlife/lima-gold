@@ -23,12 +23,14 @@ class Client(sleekxmpp.ClientXMPP):
 	init_complete_listeners = []
 	participants = {}
 
-	def __init__(self, jid, password, room, nick, key, log=None):
+	def __init__(self, jid, password, room, nick, key, log=None,
+			history=False):
 		sleekxmpp.ClientXMPP.__init__(self, jid, password)
 
 		self.room = room
 		self.nick = nick
 		self.online = False
+		self.history = history
 
 		if key is None:
 			self.encrypt = False
@@ -93,7 +95,9 @@ class Client(sleekxmpp.ClientXMPP):
 	def start(self, event):
 		self.get_roster()
 		self.send_presence()
-		self.plugin['xep_0045'].joinMUC(self.room, self.nick, wait=True)
+		self.plugin['xep_0045'].joinMUC(self.room, self.nick,
+				maxhistory="20" if self.history else "0",
+				wait=True)
 
 	def muc_message(self, msg):
 		nick = msg['mucnick']
@@ -113,9 +117,9 @@ class Client(sleekxmpp.ClientXMPP):
 					nick, 'role')
 			affiliation = self.plugin['xep_0045'].getJidProperty(
 					self.room, nick, 'affiliation')
+		if not (self.online or self.history):
+			return
 		if nick != self.nick:
-			if not self.online:
-				return
 			body = msg['body']
 			stealth = False
 			if len(msg['encrypted']['content']) != 0:

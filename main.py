@@ -161,14 +161,26 @@ if __name__ == "__main__":
 	key = config.get("xmpp", "key", fallback=None)
 	logfile_name = config.get("client", "logfile", fallback="xmpp.log")
 	enable_bell = config.getboolean("client", "bell", fallback=False)
+	default_mode = config.get("client", "mode", fallback="plain")
+	history = config.getboolean("client", "history", fallback=True)
 
 	mode = GOLD if key is not None else PLAIN
 
-	xmpp = Client(jid, password, room, nick, key)
+	xmpp = Client(jid, password, room, nick, key, history=history)
 	xmpp.register_plugin("xep_0030") # Service Discovery
 	xmpp.register_plugin("xep_0045") # Multi-User Chat
 	xmpp.register_plugin("xep_0199") # XMPP Ping
 	xmpp.register_plugin("encrypt-im") # encrypted stealth MUC
+
+	if default_mode == "plain" or key is None:
+		xmpp.encrypt = False
+		mode = PLAIN
+	elif default_mode == "gold":
+		xmpp.encrypt = True
+		mode = GOLD
+	elif default_mode == "stealth":
+		xmpp.encrypt = False
+		mode = STEALTH
 
 	logfile = open(logfile_name, "a")
 
@@ -233,6 +245,7 @@ if __name__ == "__main__":
 
 	def muc_joined():
 		log_status('You have joined as "%s"' % xmpp.nick)
+		show('You have joined as "%s"' % xmpp.nick)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
