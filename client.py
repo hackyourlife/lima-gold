@@ -23,14 +23,20 @@ class Client(sleekxmpp.ClientXMPP):
 	init_complete_listeners = []
 	participants = {}
 
+	PLAIN = 0
+	ENCRYPTED = 1
+	STEALTH = 2
+
 	def __init__(self, jid, password, room, nick, key=None, log=None,
-			history=False):
+			history=False, encrypted_msg_info="[encrypted]"):
 		sleekxmpp.ClientXMPP.__init__(self, jid, password)
 
 		self.room = room
 		self.nick = nick
 		self.online = False
+		self.sent = False
 		self.history = history
+		self.encrypted_msg_info = encrypted_msg_info
 
 		if key is None:
 			self.encrypt = False
@@ -117,50 +123,51 @@ class Client(sleekxmpp.ClientXMPP):
 					nick, 'role')
 			affiliation = self.plugin['xep_0045'].getJidProperty(
 					self.room, nick, 'affiliation')
-		if not (self.online or self.history):
-			return
-		if nick != self.nick:
-			body = msg['body']
-			stealth = False
-			if len(msg['encrypted']['content']) != 0:
-				if self.key is None:
-					return
-				data = msg['encrypted']['content']
-				try:
-					body = self.decode(data)
-					stealth = True
-				except Exception as e:
-					self.log.warn("exception while " \
-							"decoding: %s" % e)
-			if len(body) == 0:
+		echo = nick == self.nick and self.sent
+		body = msg['body']
+		msgtype = self.PLAIN
+		if len(msg['encrypted']['content']) != 0:
+			if self.key is None:
 				return
-			if self.key is not None:
-				try:
-					XHTML_NS = 'http://www.w3.org/1999/xhtml'
-					span = msg['html'].find('.//{%s}span[@data]' %
-							XHTML_NS)
-					if span is not None:
-						data = span.attrib.get('data')
-						body = self.decode(data)
-				except Exception as e:
-					self.log.warn("exception while " \
-							"decoding lima gold: " \
-							"%s" % e)
-			if body.startswith("%s:" % self.nick) or \
-					body.startswith("%s " % self.nick) \
-					and len(body) > len(self.nick) + 2:
-				text = body[len(self.nick) + 1:].strip()
-				for listener in self.mention_listeners:
-					listener(msg=text, nick=nick, jid=jid,
-							role=role,
-							affiliation=affiliation,
-							stealth=stealth)
-			else:
-				for listener in self.message_listeners:
-					listener(msg=body, nick=nick,
-							jid=jid, role=role,
-							affiliation=affiliation,
-							stealth=stealth)
+			data = msg['encrypted']['content']
+			try:
+				body = self.decode(data)
+				msgtype = self.STEALTH
+			except Exception as e:
+				self.log.warn("exception while " \
+						"decoding: %s" % e)
+		if len(body) == 0:
+			return
+		if self.key is not None:
+			try:
+				XHTML_NS = 'http://www.w3.org/1999/xhtml'
+				span = msg['html'].find('.//{%s}span[@data]' %
+						XHTML_NS)
+				if span is not None:
+					data = span.attrib.get('data')
+					body = self.decode(data)
+					msgtype = self.ENCRYPTED
+			except Exception as e:
+				self.log.warn("exception while " \
+						"decoding lima gold: " \
+						"%s" % e)
+		if body.startswith("%s:" % self.nick) or \
+				body.startswith("%s " % self.nick) \
+				and len(body) > len(self.nick) + 2:
+			text = body[len(self.nick) + 1:].strip()
+			for listener in self.mention_listeners:
+				listener(msg=text, nick=nick, jid=jid,
+						role=role,
+						affiliation=affiliation,
+						msgtype=msgtype,
+						echo=echo)
+		else:
+			for listener in self.message_listeners:
+				listener(msg=body, nick=nick,
+						jid=jid, role=role,
+						affiliation=affiliation,
+						msgtype=msgtype,
+						echo=echo)
 
 	def message(self, msg):
 		if msg['type'] in ('chat', 'normal'):
@@ -214,23 +221,32 @@ class Client(sleekxmpp.ClientXMPP):
 			self.muc_send_stealth(msg)
 		elif (enc is None and self.encrypt or enc) \
 				and self.key is not None:
-			plain = '[Diese Nachricht ist nur für ' \
-					'Lima-Gold-Mitglieder ' \
-					'lesbar. Mehr auf lima-city.de/gold]'
 			html = '<span data="%s">%s</span>' % (self.encode(msg),
-					plain)
+					self.encrypted_msg_info)
 			sleekxmpp.ClientXMPP.send_message(self, mto=self.room,
-					mbody=plain, mhtml=html,
-					mtype='groupchat')
+					mbody=self.encrypted_msg_info,
+					mhtml=html, mtype='groupchat')
 		else:
 			sleekxmpp.ClientXMPP.send_message(self, mto=self.room,
 					mbody=msg, mtype='groupchat')
+		self.sent = True
+
+	def muc_send_encrypted(self, msg, plain=None):
+		if self.key is None:
+			raise Exception("no encryption key!")
+		if plain is None:
+			plain = self.encrypted_msg_info
+		html = '<span data="%s">%s</span>' % (self.encode(msg), plain)
+		sleekxmpp.ClientXMPP.send_message(self, mto=self.room,
+				mbody=plain, mhtml=html, mtype='groupchat')
+		self.sent = True
 
 	def muc_send_stealth(self, msg):
 		message = self.Message(sto=self.room, stype='groupchat',
 				sfrom=None)
 		message['encrypted']['content'] = self.encode(msg)
 		message.send()
+		self.sent = True
 
 	def msg_send(self, to, msg, muc):
 		jid = to
