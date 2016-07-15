@@ -4,3 +4,6 @@ password = secret
 room = room@jabber.server
 nick = Me
 key = the-key
+
+[ui]
+rpadnicks = False

@@ -50,7 +50,10 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 
+longest = 0
+rpad = False
 color_sequences = re.compile('\033\\[[^m]+?m')
+
 
 COLORS = [ "[31m", "[32m", "[33m", "[34m", "[35m", "[36m", "[37m" ]
 MENTION_COLOR = "[33m"
@@ -260,6 +263,7 @@ if __name__ == "__main__":
 	enable_bell = config.getboolean("client", "bell", fallback=False)
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)
+	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 	no_colors = not config.getboolean("ui", "colors", fallback=True)
 
 	mode = GOLD if key is not None else PLAIN
@@ -284,6 +288,7 @@ if __name__ == "__main__":
 	logfile = open(logfile_name, "a")
 
 	def log_msg(msgtype, msg, nick):
+		nick = get_formatted_nick(nick);
 		t = time()
 		lines = msg.count("\n")
 		line = "%sR %s %03d <%s> %s" % (msgtype, t, lines, nick, msg)
@@ -303,7 +308,16 @@ if __name__ == "__main__":
 		except Exception as e:
 			show("exception while writing log: %s" % e)
 
+	def get_formatted_nick(nick):
+		global longest
+		global rpad
+		if rpad and len(nick) > longest:
+			longest = len(nick) + 1
+
+		return nick if not rpad else nick.rjust(longest, ' ')
+
 	def muc_msg(msg, nick, jid, role, affiliation, msgtype, echo):
+		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		color = get_nick_color(nick)
@@ -331,6 +345,7 @@ if __name__ == "__main__":
 					nick)
 
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo):
+		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		color = get_nick_color(nick)
