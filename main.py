@@ -7,7 +7,7 @@ import configparser
 import logging
 import readline
 import re
-from functools import reduce
+import hashlib
 from client import Client
 
 import datetime
@@ -54,9 +54,8 @@ MENTION_COLOR = "[33m"
 INPUT_COLOR = "[36m"
 
 def get_nick_color(nick):
-	color = reduce(lambda x, y: x ^ y, [ ord(z) for z in nick ]) % \
-			len(COLORS)
-	return COLORS[color]
+	md5 = hashlib.md5(nick.encode())
+	return COLORS[md5.digest()[0] % len(COLORS) ]
 
 def prompt():
 	global xmpp
