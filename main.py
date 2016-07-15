@@ -7,6 +7,7 @@ import configparser
 import logging
 import readline
 import re
+import hashlib
 from client import Client
 
 import datetime
@@ -51,17 +52,29 @@ url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 longest = 0
 rpad = False
 
+COLORS = [ "[31m", "[32m", "[33m", "[34m", "[35m", "[36m", "[37m" ]
+MENTION_COLOR = "[33m"
+INPUT_COLOR = "[36m"
+
+def get_nick_color(nick):
+	md5 = hashlib.md5(nick.encode())
+	return COLORS[md5.digest()[0] % len(COLORS) ]
+
 def prompt():
 	global xmpp
 	return PROMPT % (xmpp.nick, mode)
 
-# clear current line, output text, show input line again
-# FIXME: strip escape sequences from msg
-def show(msg):
+def escape_vt(text):
+	return text.replace("\033", "^[")
+
+def show_raw(msg):
 	line = readline.get_line_buffer()
-	msg = msg.replace("\033", "^[")
-	sys.stdout.write("\r\033[K%s\r\n%s%s" % (msg, prompt(), line))
+	sys.stdout.write("\r\033[K\033[0m%s\r\n\033%s%s%s" % (msg, INPUT_COLOR,
+			prompt(), line))
 	sys.stdout.flush()
+
+def show(msg):
+	show_raw(escape_vt(msg))
 
 class Help(object):
 	def __init__(self, usage=None, info=None, see=[], topic=None):
@@ -300,19 +313,27 @@ if __name__ == "__main__":
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
+		color = get_nick_color(nick)
 		if msgtype == xmpp.STEALTH:
 			if not echo:
 				if msg.startswith("/me "):
-					show("$ *** %s %s" % (nick, msg[4:]))
+					show_raw("$ \033%s*** %s\033[0m %s" %
+							(color, escape_vt(nick),
+							escape_vt(msg[4:])))
 				else:
-					show("$ %s: %s" % (nick, msg))
+					show_raw("$ \033%s<%s>\033[0m %s" %
+							(color, nick, msg))
 			log_msg("Q", msg, nick)
 		else:
 			if not echo:
 				if msg.startswith("/me "):
-					show("*** %s %s" % (nick, msg[4:]))
+					show_raw("\033%s*** %s\033[0m %s" %
+							(color, escape_vt(nick),
+							escape_vt(msg[4:])))
 				else:
-					show("%s: %s" % (nick, msg))
+					show_raw("\033%s<%s>\033[0m %s" % (color,
+							escape_vt(nick),
+							escape_vt(msg)))
 			log_msg("M" if msgtype == xmpp.PLAIN else "E", msg,
 					nick)
 
@@ -322,18 +343,21 @@ if __name__ == "__main__":
 			sys.stdout.write("\007")
 		if msgtype == xmpp.STEALTH:
 			if not echo:
-				show("$ <<<%s>>> %s" % (nick, msg))
+				show_raw("\033%s$ <<<%s>>> %s\033[0m" % \
+						(MENTION_COLOR, nick, msg))
 			log_msg("Q", "%s: %s" % (xmpp.nick, msg), nick)
 		else:
 			if not echo:
-				show("<<<%s>>> %s" % (nick, msg))
+				show_raw("\033%s<<<%s>>> %s\033[0m" %
+						(MENTION_COLOR, nick, msg))
 			log_msg("M" if msgtype == xmpp.PLAIN else "E",
 					"%s: %s" % (xmpp.nick, msg), nick)
 
 	def priv_msg(msg, jid):
 		if enable_bell:
 			sys.stdout.write("\007")
-		show("<PRIV#%s> %s" % (jid, msg))
+		show_raw("\033%s<PRIV#%s> %s\033[0m" % (MENTION_COLOR,
+				escape_vt(jid), escape_vt(msg)))
 
 	def muc_online(jid, nick, role, affiliation, localjid):
 		show("*** online: %s (%s; %s)" % (nick, jid, role))
@@ -363,9 +387,11 @@ if __name__ == "__main__":
 	readline.read_init_file()
 	try:
 		while True:
-			line = input(prompt())
+			line = input("\033%s%s" % (INPUT_COLOR, prompt()))
 			if not line:
 				continue
+			sys.stdout.write('\033[0m')
+			sys.stdout.flush()
 			msg = line.strip()
 			if len(msg) == 0:
 				continue
