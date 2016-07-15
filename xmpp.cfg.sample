@@ -1,9 +1,16 @@
 [xmpp]
-jid = account@jabber.server
+jid = account@jabber.server/resource
 password = secret
-room = room@jabber.server
+room = room@conference.jabber.server
 nick = Me
 key = the-key
 
+[client]
+logfile = xmpp.log
+bell = True
+history = True
+mode = plain
+
 [ui]
 rpadnicks = False
+colors = True
