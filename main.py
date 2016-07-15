@@ -48,6 +48,8 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 
+longest = 0
+
 def prompt():
 	global xmpp
 	return PROMPT % (xmpp.nick, mode)
@@ -264,6 +266,7 @@ if __name__ == "__main__":
 	logfile = open(logfile_name, "a")
 
 	def log_msg(msgtype, msg, nick):
+		nick = get_formatted_nick(nick);
 		t = time()
 		lines = msg.count("\n")
 		line = "%sR %s %03d <%s> %s" % (msgtype, t, lines, nick, msg)
@@ -283,7 +286,16 @@ if __name__ == "__main__":
 		except Exception as e:
 			show("exception while writing log: %s" % e)
 
+	def get_formatted_nick(nick):
+		rpad = config.getboolean("ui", "rpadnicks")
+		global longest
+		if rpad and len(nick) > longest:
+			longest = len(nick) + 1
+
+		return nick if not rpad else nick.rjust(longest, ' ')
+
 	def muc_msg(msg, nick, jid, role, affiliation, msgtype, echo):
+		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		if msgtype == xmpp.STEALTH:
@@ -291,18 +303,19 @@ if __name__ == "__main__":
 				if msg.startswith("/me "):
 					show("$ *** %s %s" % (nick, msg[4:]))
 				else:
-					show("$ <%s> %s" % (nick, msg))
+					show("$ %s: %s" % (nick, msg))
 			log_msg("Q", msg, nick)
 		else:
 			if not echo:
 				if msg.startswith("/me "):
 					show("*** %s %s" % (nick, msg[4:]))
 				else:
-					show("<%s> %s" % (nick, msg))
+					show("%s: %s" % (nick, msg))
 			log_msg("M" if msgtype == xmpp.PLAIN else "E", msg,
 					nick)
 
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo):
+		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		if msgtype == xmpp.STEALTH:
