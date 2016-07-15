@@ -280,7 +280,7 @@ if __name__ == "__main__":
 			show("exception while writing log: %s" % e)
 
 	def muc_msg(msg, nick, jid, role, affiliation, msgtype, echo):
-		if enable_bell:
+		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		if msgtype == xmpp.STEALTH:
 			if not echo:
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 					nick)
 
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo):
-		if enable_bell:
+		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		if msgtype == xmpp.STEALTH:
 			if not echo:
