@@ -49,7 +49,7 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 
 longest = 0
-rpad = false
+rpad = False
 
 def prompt():
 	global xmpp
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 	enable_bell = config.getboolean("client", "bell", fallback=False)
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)
-	rpad = config.getboolean("ui", "rpadnicks", fallback = False)
+	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 
 	mode = GOLD if key is not None else PLAIN
 

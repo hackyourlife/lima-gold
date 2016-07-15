@@ -6,4 +6,4 @@ nick = Me
 key = the-key
 
 [ui]
-rpadnicks = false
+rpadnicks = False
