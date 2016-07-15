@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 PROMPT = '%s%s '
 mode = '>'
 enable_bell = False
+no_colors = False
 
 PLAIN = '>'
 STEALTH = '$'
@@ -51,6 +52,8 @@ url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 
 longest = 0
 rpad = False
+color_sequences = re.compile('\033\\[[^m]+?m')
+
 
 COLORS = [ "[31m", "[32m", "[33m", "[34m", "[35m", "[36m", "[37m" ]
 MENTION_COLOR = "[33m"
@@ -69,8 +72,11 @@ def escape_vt(text):
 
 def show_raw(msg):
 	line = readline.get_line_buffer()
-	sys.stdout.write("\r\033[K\033[0m%s\r\n\033%s%s%s" % (msg, INPUT_COLOR,
-			prompt(), line))
+	raw = "\r\033[K\033[0m%s\r\n\033%s%s%s" % (msg, INPUT_COLOR, prompt(),
+			line)
+	if no_colors:
+		raw = color_sequences.sub('', raw)
+	sys.stdout.write(raw)
 	sys.stdout.flush()
 
 def show(msg):
@@ -258,6 +264,7 @@ if __name__ == "__main__":
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)
 	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
+	no_colors = not config.getboolean("ui", "colors", fallback=True)
 
 	mode = GOLD if key is not None else PLAIN
 
@@ -341,15 +348,19 @@ if __name__ == "__main__":
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
+		color = get_nick_color(nick)
 		if msgtype == xmpp.STEALTH:
 			if not echo:
-				show_raw("\033%s$ <<<%s>>> %s\033[0m" % \
-						(MENTION_COLOR, nick, msg))
+				show_raw("\033%s$ \033%s<<<%s>>>\033%s "
+						"%s\033[0m" % \
+						(MENTION_COLOR, color, nick,
+							MENTION_COLOR, msg))
 			log_msg("Q", "%s: %s" % (xmpp.nick, msg), nick)
 		else:
 			if not echo:
-				show_raw("\033%s<<<%s>>> %s\033[0m" %
-						(MENTION_COLOR, nick, msg))
+				show_raw("\033%s<<<%s>>>\033%s %s\033[0m" %
+						(color, nick, MENTION_COLOR,
+							msg))
 			log_msg("M" if msgtype == xmpp.PLAIN else "E",
 					"%s: %s" % (xmpp.nick, msg), nick)
 
@@ -387,7 +398,11 @@ if __name__ == "__main__":
 	readline.read_init_file()
 	try:
 		while True:
-			line = input("\033%s%s" % (INPUT_COLOR, prompt()))
+			if no_colors:
+				p = prompt()
+			else:
+				p = "\033%s%s" % (INPUT_COLOR, prompt())
+			line = input(p)
 			if not line:
 				continue
 			sys.stdout.write('\033[0m')
