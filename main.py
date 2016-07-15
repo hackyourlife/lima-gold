@@ -49,6 +49,7 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 
 longest = 0
+rpad = config.getboolean("ui", "rpadnicks", fallback = False)
 
 def prompt():
 	global xmpp
@@ -287,8 +288,8 @@ if __name__ == "__main__":
 			show("exception while writing log: %s" % e)
 
 	def get_formatted_nick(nick):
-		rpad = config.getboolean("ui", "rpadnicks")
 		global longest
+		global rpad
 		if rpad and len(nick) > longest:
 			longest = len(nick) + 1
 
