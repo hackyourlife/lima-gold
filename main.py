@@ -120,14 +120,15 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				"section is replaced with a [censored] message "
 				"for all normal clients. To escape the "
 				"separator character (\"$\") prefix it with a "
-				"\"\\\", e.g. \"\\$21 = $33.",
+				"\"for the cheat, set \\$21 = $33\".",
 				see=["/e", "/eq", "/el"]),
 		"/eq": Help("/eq plain$encrypted", "send a message whose plain "
 				"section is sent unmodified, but the encrypted "
 				"section is completely removed for all normal "
-				" clients. To escape the separator character "
+				"clients. To escape the separator character "
 				"(\"$\") prefix it with a \"\\\", e.g. "
-				"\"\\$21 = $33.", see=["/e", "/eq", "/el"]),
+				"\"for the cheat, set \\$21 = $33\".",
+				see=["/e", "/es", "/el"]),
 		"/el": Help("/el text", "send a message where everything "
 				"starting at the first link is [encrypted].",
 				see=["/e", "/es", "/eq"]),
@@ -161,6 +162,7 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				"bell = False\n"
 				"history = True\n"
 				"mode = plain\n"
+				"logfile = xmpp.log\n"
 				"\n"
 				"The options have the following meaning:\n"
 				"jid: the jid of the jabber account.\n"
@@ -181,7 +183,8 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				"mode: the default mode. It can be \"plain\", "
 				"\"encrypt\" or \"stealth\". This has the same "
 				"effect as if you enter a /plain, /encrypt or "
-				"/stealth command by hand at each start."),
+				"/stealth command by hand at each start.\n"
+				"logfile: the log file for history logging."),
 		"about": Help(topic="About", info="This client was written to "
 				"allow private group chats in public muc "
 				"rooms. The encrypted mode was invented to "
@@ -201,7 +204,8 @@ def print_help():
 			if online_help[key].iscommand ]))
 	topics = " ".join(sorted([ key for key in online_help.keys() \
 			if not online_help[key].iscommand ]))
-	print("commands: %s\nhelp topics: %s" % (commands, topics))
+	print("commands: %s\nhelp topics: %s\nFor mor information, type /help "
+			"<command|topic>" % (commands, topics))
 
 def show_help(subject):
 	if subject in online_help:
