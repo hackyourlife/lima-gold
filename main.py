@@ -204,7 +204,7 @@ def print_help():
 			if online_help[key].iscommand ]))
 	topics = " ".join(sorted([ key for key in online_help.keys() \
 			if not online_help[key].iscommand ]))
-	print("commands: %s\nhelp topics: %s\nFor mor information, type /help "
+	print("commands: %s\nhelp topics: %s\nFor more information, type /help "
 			"<command|topic>" % (commands, topics))
 
 def show_help(subject):
