@@ -8,6 +8,7 @@ import logging
 import readline
 import re
 import hashlib
+import rl
 from client import Client
 
 import datetime
@@ -70,14 +71,12 @@ def prompt():
 def escape_vt(text):
 	return text.replace("\033", "^[")
 
-def show_raw(msg):
-	line = readline.get_line_buffer()
-	raw = "\r\033[K\033[0m%s\r\n\033%s%s%s" % (msg, INPUT_COLOR, prompt(),
-			line)
+def show_raw(raw):
 	if no_colors:
 		raw = color_sequences.sub('', raw)
-	sys.stdout.write(raw)
-	sys.stdout.flush()
+		rl.echo(raw)
+	else:
+		rl.echo("\033[0m%s" % raw, prompt_prefix="\033%s" % INPUT_COLOR)
 
 def show(msg):
 	show_raw(escape_vt(msg))
@@ -226,7 +225,7 @@ def print_help():
 			if online_help[key].iscommand ]))
 	topics = " ".join(sorted([ key for key in online_help.keys() \
 			if not online_help[key].iscommand ]))
-	print("commands: %s\nhelp topics: %s\nFor more information, type /help "
+	show("commands: %s\nhelp topics: %s\nFor more information, type /help "
 			"<command|topic>" % (commands, topics))
 
 def show_help(subject):
@@ -238,9 +237,28 @@ def show_help(subject):
 			text = hlp.info
 		if len(hlp.see) > 0:
 			text += "\nSEE ALSO: %s" % ", ".join(hlp.see)
-		print(text)
+		show(text)
 	else:
-		print("no help entry found")
+		show("no help entry found")
+
+class NickCompleter(object):
+	def __init__(self, xmpp):
+		self.xmpp = xmpp
+
+	def complete(self, text, state):
+		if state == 0: # first time for this text: find nicks
+			if text:
+				participants = self.xmpp.get_participants()
+				self.matches = [ participants[jid]["nick"] for \
+						jid in participants if \
+						participants[jid]["nick"] \
+								.startswith(text) ]
+			else:
+				self.matches = []
+		try:
+			return self.matches[state]
+		except IndexError:
+			return None
 
 xmpp = None
 if __name__ == "__main__":
@@ -396,17 +414,18 @@ if __name__ == "__main__":
 		sys.exit(1)
 
 	readline.read_init_file()
+	readline.parse_and_bind("tab: complete")
+	readline.set_completer(NickCompleter(xmpp).complete)
+
 	try:
 		while True:
-			if no_colors:
-				p = prompt()
-			else:
-				p = "\033%s%s" % (INPUT_COLOR, prompt())
-			line = input(p)
+			if not no_colors:
+				sys.stdout.write("\033%s" % INPUT_COLOR)
+				sys.stdout.flush()
+			line = input(prompt())
+			#line = rl.readline(prompt())
 			if not line:
 				continue
-			sys.stdout.write('\033[0m')
-			sys.stdout.flush()
 			msg = line.strip()
 			if len(msg) == 0:
 				continue
@@ -419,7 +438,7 @@ if __name__ == "__main__":
 				break
 			elif msg == "/encrypt" or msg == "/gold":
 				if xmpp.key is None:
-					print("no encryption key set")
+					show("no encryption key set")
 				else:
 					xmpp.encrypt = True
 					mode = GOLD
@@ -428,11 +447,11 @@ if __name__ == "__main__":
 				mode = PLAIN
 			elif msg == "/stealth":
 				if xmpp.key is None:
-					print("no encryption key set")
+					show("no encryption key set")
 				else:
 					mode = STEALTH
 			elif msg == "/status":
-				print("key %s, mode is %s" % ("available" if
+				show("key %s, mode is %s" % ("available" if
 						xmpp.key is not None else
 						"not available", "plaintext" if
 						mode == PLAIN else "gold" if
@@ -445,38 +464,38 @@ if __name__ == "__main__":
 							.strip()
 					text = msg[5 + len(nick) + 1:].strip()
 				except ValueError as e:
-					print("syntax error")
+					show("syntax error")
 				if nick is not None:
 					xmpp.msg_send(nick, text, True)
 			elif msg.startswith("/enc "):
 				text = msg[5:].strip()
 				if xmpp.key is None:
-					print("error: no key set")
+					show("error: no key set")
 				else:
 					try:
 						data = xmpp.encode(text)
-						print(data)
+						show(data)
 					except Exception as e:
-						print("exception: %s" % e)
+						show("exception: %s" % e)
 			elif msg.startswith("/dec "):
 				text = msg[5:].strip()
 				if xmpp.key is None:
-					print("error: no key set")
+					show("error: no key set")
 				else:
 					try:
 						data = xmpp.decode(text)
-						print("'%s'" % data)
+						show("'%s'" % data)
 					except Exception as e:
-						print("exception: %s" % e)
+						show("exception: %s" % e)
 			elif msg.startswith("/e "):
 				text = msg[3:].strip()
 				if xmpp.key is None:
-					print("error: no key set")
+					show("error: no key set")
 				else:
 					try:
 						xmpp.muc_send(text, enc=True)
 					except Exception as e:
-						print("exception: %s" % e)
+						show("exception: %s" % e)
 			elif msg.startswith("/q "):
 				text = msg[3:].strip()
 				if xmpp.key is None:
@@ -561,20 +580,20 @@ if __name__ == "__main__":
 				text = msg[5:].strip()
 				xmpp.muc_send(text)
 			elif msg == "/bell":
-				print("bell is %s" % ("enabled" if enable_bell
+				show("bell is %s" % ("enabled" if enable_bell
 					else "disabled"))
 			elif msg.startswith("/bell "):
 				text = msg[6:].strip()
 				if text == "on":
 					enable_bell = True
-					print("bell is now enabled")
+					show("bell is now enabled")
 				elif text == "off":
 					enable_bell = False
-					print("bell is now disabled")
+					show("bell is now disabled")
 				else:
-					print("syntax error")
+					show("syntax error")
 			elif msg[0] == "/" and not msg.startswith("/me "):
-				print("unknown command")
+				show("unknown command")
 			else:
 				if mode == STEALTH:
 					xmpp.muc_send(msg, stealth=True)
@@ -583,5 +602,8 @@ if __name__ == "__main__":
 
 	except KeyboardInterrupt: pass
 	except EOFError: pass
+
+	sys.stdout.write("\033[0m")
+	sys.stdout.flush()
 
 	xmpp.disconnect()
