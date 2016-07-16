@@ -6,7 +6,7 @@ from ctypes.util import find_library
 import readline as r
 import sys
 
-rl = cdll.LoadLibrary("libreadline.so")
+rl = cdll.LoadLibrary(find_library("readline"))
 
 rl_readline_state = c_int.in_dll(rl, "rl_readline_state")
 rl_point = c_int.in_dll(rl, "rl_point")
