@@ -66,6 +66,7 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 		"Lima-Gold-Mitglieder lesbar. Mehr auf lima-city.de/gold]"
 
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
+jid_regex = re.compile(r'[a-zA-Z0-9]+@(?:[a-zA-Z0-9]+\.)+[a-zA-Z0-9]+(?:/.*)?')
 
 longest = 0
 rpad = False
@@ -175,6 +176,7 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 		"/el": Help("/el text", "send a message where everything "
 				"starting at the first link is [encrypted].",
 				see=["/e", "/es", "/eq"]),
+		"/ls": Help("/ls [detail]", "list all users in the room"),
 		"modes": Help(topic="Modes", info="There exist 3 different "
 				"modes of operation: plaintext, encrypted and "
 				"stealth mode. They influence how messages are "
@@ -427,7 +429,7 @@ if __name__ == "__main__":
 		global longest
 		global rpad
 		if rpad and len(nick) > longest:
-			longest = len(nick) + 1
+			longest = len(nick)
 
 		return nick if not rpad else nick.rjust(longest, ' ')
 
@@ -513,10 +515,18 @@ if __name__ == "__main__":
 		show_raw("\033%s%s<PRIV#%s> %s\033[0m" % (MENTION_COLOR,
 				timestamp, escape_vt(jid), escape_vt(msg)))
 
-	def muc_online(jid, nick, role, affiliation, localjid):
-		timestamp = "%s " % localtime() if show_timestamps else ""
-		show("%s*** online: %s (%s; %s)" % (timestamp, nick, jid, role))
+	def muc_online(jid, nick, role, affiliation, localjid, info):
+		global longest
+
+		if history:
+			timestamp = "%s " % localtime() if show_timestamps \
+					else ""
+			show("%s*** online: %s (%s; %s)" % (timestamp, nick,
+				jid, role))
 		log_status("%s <%s> has joined" % (nick, jid))
+
+		if len(nick) > longest:
+			longest = len(nick)
 
 	def muc_offline(jid, nick):
 		timestamp = "%s " % localtime() if show_timestamps else ""
@@ -600,7 +610,15 @@ if __name__ == "__main__":
 					text = msg[5 + len(nick) + 1:].strip()
 				except ValueError as e:
 					show("syntax error")
-				if nick is not None:
+				participants = xmpp.get_participants()
+				nicks = [ participants[jid]["nick"]
+						for jid in participants ]
+				if not nick in nicks:
+					if jid_regex.match(nick) is not None:
+						xmpp.msg_send(nick, text, False)
+					else:
+						show("error: no such user")
+				else:
 					xmpp.msg_send(nick, text, True)
 			elif msg.startswith("/enc "):
 				show_input(msg)
@@ -731,6 +749,21 @@ if __name__ == "__main__":
 					show("bell is now disabled")
 				else:
 					show("syntax error")
+			elif msg == "/ls":
+				show_input(msg)
+				participants = xmpp.get_participants()
+				nicks = sorted([ participants[jid]["nick"]
+						for jid in participants ])
+				show("currently %d participants: %s" %
+						(len(nicks), ", ".join(nicks)))
+			elif msg == "/ls detail":
+				show_input(msg)
+				participants = xmpp.get_participants()
+				nicks = sorted([ "%s (%s)" %
+						(participants[jid]["nick"], jid)
+						for jid in participants ])
+				show("currently %d participants: %s" %
+						(len(nicks), ", ".join(nicks)))
 			elif msg[0] == "/" and not msg.startswith("/me "):
 				show_input(msg)
 				show("unknown command")

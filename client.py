@@ -206,12 +206,11 @@ class Client(sleekxmpp.ClientXMPP):
 					'time': time()}
 			self.log.info("online: %s: %s [%s]" % (fulljid, role,
 					nick))
-			if not self.online:
-				return
 			for listener in self.online_listeners:
 				listener(jid=fulljid, nick=nick, role=role,
 						affiliation=affiliation,
-						localjid=jid)
+						localjid=jid,
+						info=not self.online)
 		else:
 			for listener in self.init_complete_listeners:
 				listener()
