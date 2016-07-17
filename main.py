@@ -3,12 +3,15 @@
 # vim:set ts=8 sts=8 sw=8 tw=80 noet cc=80:
 
 import sys
+import os
 import configparser
 import logging
 import readline
 import re
 import hashlib
 import rl
+from optparse import OptionParser
+from getpass import getpass
 from client import Client
 
 import datetime
@@ -293,15 +296,80 @@ if __name__ == "__main__":
 	logging.basicConfig(level=logging.ERROR,
 		                        format="%(levelname)-8s %(message)s")
 
-	filename = "xmpp.cfg"
+	parser = OptionParser()
+	parser.add_option("-f", "--file", dest="file", help="Config file path")
+	parser.add_option("-j", "--jid", dest="jid", help="JID")
+	parser.add_option("-p", "--password", dest="password", help="Password")
+	parser.add_option("-r", "--room", dest="room", help="Conference room")
+	parser.add_option("-n", "--nick", dest="nick", help="Nick")
+	parser.add_option("-k", "--key", dest="key", help="Encryption key")
+	parser.add_option("-l", "--log", dest="log", help="Log file path")
+	parser.add_option("-b", "--bell", dest="bell",
+			action="store_true", help="Enable bell")
+	parser.add_option("-B", "--no-bell", dest="bell",
+			action="store_false", help="Disable bell")
+	parser.add_option("-m", "--mode", dest="mode", help="Default mode")
+	parser.add_option("-i", "--history", dest="history",
+			action="store_true", help="Disable history on connect")
+	parser.add_option("-H", "--no-history", dest="history",
+			action="store_false", help="Disable history on connect")
+	parser.add_option("-a", "--rpad", dest="rpad",
+			action="store_true", help="rpad nicks")
+	parser.add_option("-A", "--no-rpad", dest="rpad",
+			action="store_false", help="Do not rpad nicks")
+	parser.add_option("-c", "--colors", dest="colors",
+			action="store_true", help="Disable colors")
+	parser.add_option("-C", "--no-colors", dest="colors",
+			action="store_false", help="Disable colors")
+	parser.add_option("-t", "--timestamps", dest="Enable timestamps",
+			action="store_true", help="Disable timestamps")
+	parser.add_option("-T", "--no-timestamps", dest="timestamps",
+			action="store_false", help="Disable timestamps")
+	(options, args) = parser.parse_args()
+
+
+	filenames = [ "xmpp.cfg", os.path.expanduser("~/.limagoldrc"),
+			"/etc/limagold.conf" ]
+	if options.file is not None:
+		filenames = [ options.file ] + filenames
+
 	config = configparser.SafeConfigParser()
-	config.read(filename)
+	config.read(filenames)
+
+	for section in [ "xmpp", "client", "ui" ]:
+		if not config.has_section(section):
+			config.add_section(section)
+
+	if options.jid is not None:
+		config.set("xmpp", "jid", options.jid)
+	if options.password is not None:
+		config.set("xmpp", "password", options.password)
+	if options.room is not None:
+		config.set("xmpp", "room", options.room)
+	if options.nick is not None:
+		config.set("xmpp", "nick", options.nick)
+	if options.key is not None:
+		config.set("xmpp", "key", options.key)
+	if options.log is not None:
+		config.set("client", "logfile", options.log)
+	if options.bell is not None:
+		config.set("client", "bell", str(options.bell))
+	if options.mode is not None:
+		config.set("client", "mode", options.mode)
+	if options.history is not None:
+		config.set("client", "history", str(options.history))
+	if options.rpad is not None:
+		config.set("ui", "rpadnicks", str(options.rpad))
+	if options.colors is not None:
+		config.set("ui", "colors", str(options.colors))
+	if options.timestamps is not None:
+		config.set("ui", "timestamps", str(options.timestamps))
+
 	jid = config.get("xmpp", "jid")
 	try:
 		password = config.get("xmpp", "password")
 	except:
-		import getpass
-		password = getpass.getpass("Password: ")
+		password = getpass("Password: ")
 	room = config.get("xmpp", "room")
 	nick = config.get("xmpp", "nick")
 	key = config.get("xmpp", "key", fallback=None)
