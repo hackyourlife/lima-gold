@@ -7,7 +7,7 @@ url="https://github.com/hackyourlife/lima-gold"
 license=("Custom")
 depends=("python" "python-sleekxmpp" "python-crypto")
 source=(client.py encryptim.py main.py rl.py setup.py)
-md5sums=("3d790d5a21fe74c4b232df986c606afb"
+md5sums=("225d06e97466329015814a9ee1c66db6"
          "851a9f27429ca1dd6792cde39b061d2d"
          "38c54671c4c79a12281069fe91bc576e"
          "5e1c0e2735ee8750ee2f29e1a4c3eefa"

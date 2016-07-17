@@ -146,7 +146,10 @@ class Client(sleekxmpp.ClientXMPP):
 				if span is not None:
 					data = span.attrib.get('data')
 					body = self.decode(data)
-					msgtype = self.ENCRYPTED
+					if len(body) == 0:
+						body = msg['body']
+					else:
+						msgtype = self.ENCRYPTED
 			except Exception as e:
 				self.log.warn("exception while " \
 						"decoding lima gold: " \
