@@ -347,7 +347,7 @@ if __name__ == "__main__":
 	parser.add_option("-S", "--section", dest="section",
 			help="Replacement text for encrypted sections")
 	parser.add_option("-J", "--no-join-log", dest="joinlog",
-			action="store_false", default=True,
+			action="store_false",
 			help="Disable join-time join messages")
 	(options, args) = parser.parse_args()
 
@@ -571,7 +571,9 @@ if __name__ == "__main__":
 					else ""
 			show("%s*** online: %s (%s; %s)" % (timestamp, nick,
 				jid, role))
-		log_status("%s <%s> has joined" % (nick, jid))
+
+		if not info or join_log:
+			log_status("%s <%s> has joined" % (nick, jid))
 
 		if len(nick) > longest:
 			longest = len(nick)
