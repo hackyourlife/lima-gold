@@ -187,6 +187,15 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				see=["/macro", "/macros"]),
 		"/macros": Help("/macros", "list all currently defined macros.",
 				see=["/macro", "/dmacro"]),
+		"/def": Help("/def text = replacement", "substitute all "
+				"occurences of \"text\" by \"replacement\". "
+				"This is similar to a macro, but more flexible,"
+				" since it operates on substrings.",
+				see=["/undef", "/defs"]),
+		"/undef": Help("/undef def", "delete a definition.",
+				see=["/def", "/defs"]),
+		"/defs": Help("/defs", "lists all currently defined "
+				"definitions.", see=["/def", "/undef"]),
 		"/save": Help("/save", "saves the configuration. Only the "
 				"default mode, the bell setting and the macros "
 				"are saved."),
@@ -440,6 +449,13 @@ if __name__ == "__main__":
 		for macro in keys:
 			macros[macro] = config.get("macros", macro)
 
+	definitions = {}
+	if config.has_section("definitions"):
+		keys = config.options("definitions")
+		for definition in keys:
+			definitions[definition] = config.get("definitions",
+					definition)
+
 	if default_mode == "plain" or key is None:
 		xmpp.encrypt = False
 		mode = PLAIN
@@ -591,7 +607,7 @@ if __name__ == "__main__":
 		if len(cfgfiles) == 0:
 			show("no config file")
 			return
-		cfgfile = cfgfiles[0]
+		cfgfile = cfgfiles[-1]
 		cfg = configparser.SafeConfigParser()
 		cfg.read(cfgfile)
 		str_mode = "plain" if mode == PLAIN else "encrypt" \
@@ -605,6 +621,7 @@ if __name__ == "__main__":
 			for option in newcfg[section]:
 				cfg.set(section, option,
 						newcfg[section][option])
+
 		if not cfg.has_section("macros"):
 			cfg.add_section("macros")
 		for macro in cfg.options("macros"):
@@ -613,6 +630,17 @@ if __name__ == "__main__":
 			cfg.set("macros", macro, macros[macro])
 		if len(cfg.options("macros")) == 0:
 			cfg.remove_section("macros")
+
+		if not cfg.has_section("definitions"):
+			cfg.add_section("definitions")
+		for definition in cfg.options("definitions"):
+			cfg.remove_option("definitions", definition)
+		for definition in definitions:
+			cfg.set("definitions", definition,
+					definitions[definition])
+		if len(cfg.options("definitions")) == 0:
+			cfg.remove_section("definitions")
+
 		try:
 			with open(cfgfile, "w") as f:
 				cfg.write(f, True)
@@ -680,12 +708,57 @@ if __name__ == "__main__":
 			elif msg == "/macros" or msg == "/lmacros":
 				show_input(msg)
 				show("macros: %s" % ("none" if len(macros) == 0
-						else ", ".join([ '"%s"' % macro
+						else ", ".join([ '"%s" -> "%s"'%
+							(macro, macros[macro])
 						for macro in macros ])))
+				continue
+			elif msg.startswith("/def "):
+				show_input(msg)
+				text = msg[5:].strip()
+				split = None
+				try:
+					split = text.index("=")
+				except ValueError as e:
+					try:
+						split = text.index(":")
+					except ValueError as e:
+						show("I have no idea what to "
+								"do with "
+								"that...")
+						continue
+				cmd = text[:split].strip()
+				value = text[split + 1:].strip()
+				definitions[cmd] = value
+				show("new definition: '%s' -> '%s'" % (cmd,
+						value))
+				continue
+			elif msg.startswith("/undef "):
+				show_input(msg)
+				text = msg[7:].strip()
+				if text in definitions:
+					del definitions[text]
+					show("definition '%s' deleted" % text)
+				else:
+					show("no such definition")
+				continue
+			elif msg == "/defs" or msg == "/ldef":
+				show_input(msg)
+				show("definitions: %s" % ("none" if
+						len(definitions) == 0 else
+						", ".join([ '"%s" -> "%s"' %
+							(definition,
+							definitions[definition])
+						for definition in
+								definitions ])))
 				continue
 			elif msg in macros:
 				show_input(msg)
 				msg = macros[msg]
+
+			for definition in definitions:
+				msg = msg.replace(definition,
+						definitions[definition])
+
 			if msg == "/help":
 				show_input(msg)
 				print_help()
