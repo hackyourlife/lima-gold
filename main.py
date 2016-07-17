@@ -352,8 +352,12 @@ if __name__ == "__main__":
 	(options, args) = parser.parse_args()
 
 
-	filenames = [ "/etc/limagold.conf", os.path.expanduser("~/.limagoldrc"),
-			"xmpp.cfg" ]
+	xdg_dirs = os.getenv('XDG_CONFIG_HOME', os.path.expanduser("~/.config"))
+	filenames = [ "/etc/limagold.conf",
+			os.path.expanduser("~/.limagoldrc") ]
+	for xdg_dir in xdg_dirs.split(":"):
+		filenames += [ "%s/limagold.conf" % xdg_dir ]
+	filenames += [ "xmpp.cfg" ]
 	if options.file is not None:
 		filenames += [ options.file ]
 
@@ -382,6 +386,8 @@ if __name__ == "__main__":
 		config.set("client", "mode", options.mode)
 	if options.history is not None:
 		config.set("client", "history", str(options.history))
+	if options.joinlog is not None:
+		config.set("client", "joinlog", str(options.joinlog))
 	if options.rpad is not None:
 		config.set("ui", "rpadnicks", str(options.rpad))
 	if options.colors is not None:
@@ -407,6 +413,7 @@ if __name__ == "__main__":
 	enable_bell = config.getboolean("client", "bell", fallback=False)
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)
+	join_log = config.getboolean("client", "joinlog", fallback=True)
 	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 	no_colors = not config.getboolean("ui", "colors", fallback=True)
 	show_timestamps = config.getboolean("ui", "timestamps", fallback=True)
@@ -416,7 +423,6 @@ if __name__ == "__main__":
 			fallback=encrypted_link_info)
 	encrypted_section_info = config.get("messages", "encrypted_section",
 			fallback=encrypted_section_info)
-	join_log = options.joinlog
 
 	mode = GOLD if key is not None else PLAIN
 
