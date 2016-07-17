@@ -59,11 +59,6 @@ def handle_return(x, y):
 	rl_done.value = 1
 	return 0
 
-def handle_clear(x, y):
-	rl_replace_line(c_char_p(b""), 0)
-	rl_redisplay()
-	return 0
-
 def set_delete_input(value=True):
 	global delete_input
 	delete_input = value
@@ -102,10 +97,8 @@ def readline(prompt):
 	return get_and_free(data)
 
 _enter_handler = RL_CALLBACK(handle_return)
-_clear_handler = RL_CALLBACK(handle_clear)
 def init():
 	rl_bind_key(RETURN, _enter_handler)
-	rl_bind_key(ESC, _clear_handler)
 	pass
 
 r.set_startup_hook(init)
