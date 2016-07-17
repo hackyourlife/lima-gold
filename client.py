@@ -155,7 +155,8 @@ class Client(sleekxmpp.ClientXMPP):
 				body.startswith("%s " % self.nick) \
 				and len(body) > len(self.nick) + 2:
 			text = body[len(self.nick) + 1:].strip()
-			if text[0] == ':' and len(text) > 1: # Manu-hack
+			if body[len(self.nick)] != ':' and text[0] == ':' \
+					and len(text) > 2 and text[1] == ' ':
 				text = text[1:].strip()
 			for listener in self.mention_listeners:
 				listener(msg=text, nick=nick, jid=jid,

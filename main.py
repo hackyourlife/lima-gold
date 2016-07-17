@@ -570,8 +570,7 @@ if __name__ == "__main__":
 					else ""
 			show("%s*** online: %s (%s; %s)" % (timestamp, nick,
 				jid, role))
-		if not info or join_log:
-			log_status("%s <%s> has joined" % (nick, jid))
+		log_status("%s <%s> has joined" % (nick, jid))
 
 		if len(nick) > longest:
 			longest = len(nick)
