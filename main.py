@@ -130,8 +130,8 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 		"/status": Help("/status", "show the current status.",
 				see=["/encrypt", "/plain", "/stealth",
 					"modes"]),
-		"/msg": Help("/msg nick message", "send a private message to "
-				"\"nick\"."),
+		"/msg": Help("/msg nick|jid message", "send a private message "
+				"to \"nick\" or \"jid\"."),
 		"/enc": Help("/enc text", "encrypt text and display the result "
 				"locally. Probably only useful for debugging.",
 				see=["/dec", "/encr"]),
