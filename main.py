@@ -327,6 +327,12 @@ if __name__ == "__main__":
 			action="store_true", help="Disable timestamps")
 	parser.add_option("-T", "--no-timestamps", dest="timestamps",
 			action="store_false", help="Disable timestamps")
+	parser.add_option("-E", "--encrypted", dest="encrypted",
+			help="Replacement text for encrypted messages")
+	parser.add_option("-L", "--link", dest="link",
+			help="Replacement text for encrypted links")
+	parser.add_option("-S", "--section", dest="section",
+			help="Replacement text for encrypted sections")
 	(options, args) = parser.parse_args()
 
 
@@ -338,7 +344,7 @@ if __name__ == "__main__":
 	config = configparser.SafeConfigParser()
 	config.read(filenames)
 
-	for section in [ "xmpp", "client", "ui" ]:
+	for section in [ "xmpp", "client", "ui", "messages" ]:
 		if not config.has_section(section):
 			config.add_section(section)
 
@@ -366,6 +372,12 @@ if __name__ == "__main__":
 		config.set("ui", "colors", str(options.colors))
 	if options.timestamps is not None:
 		config.set("ui", "timestamps", str(options.timestamps))
+	if options.encrypted is not None:
+		config.set("messages", "encrypted", options.encrypted)
+	if options.link is not None:
+		config.set("messages", "encrypted_link", options.link)
+	if options.section is not None:
+		config.set("messages", "encrypted_section", options.section)
 
 	jid = config.get("xmpp", "jid")
 	try:
@@ -382,6 +394,12 @@ if __name__ == "__main__":
 	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 	no_colors = not config.getboolean("ui", "colors", fallback=True)
 	show_timestamps = config.getboolean("ui", "timestamps", fallback=True)
+	encrypted_message_info = config.get("messages", "encrypted",
+			fallback=encrypted_message_info)
+	encrypted_link_info = config.get("messages", "encrypted_link",
+			fallback=encrypted_link_info)
+	encrypted_section_info = config.get("messages", "encrypted_section",
+			fallback=encrypted_section_info)
 
 	mode = GOLD if key is not None else PLAIN
 
