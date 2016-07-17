@@ -177,6 +177,19 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				"starting at the first link is [encrypted].",
 				see=["/e", "/es", "/eq"]),
 		"/ls": Help("/ls [detail]", "list all users in the room"),
+		"/macro": Help("/macro text = replacement", "define a new "
+				"macro. They are evaluated on the input text "
+				"and can therefore invoke any command. However,"
+				" you cannot override any command for "
+				"manipulating macros.",
+				see=["/dmacro", "/macros"]),
+		"/dmacro": Help("/dmacro macro", "delete a macro.",
+				see=["/macro", "/macros"]),
+		"/macros": Help("/macros", "list all currently defined macros.",
+				see=["/macro", "/dmacro"]),
+		"/save": Help("/save", "saves the configuration. Only the "
+				"default mode, the bell setting and the macros "
+				"are saved."),
 		"modes": Help(topic="Modes", info="There exist 3 different "
 				"modes of operation: plaintext, encrypted and "
 				"stealth mode. They influence how messages are "
@@ -336,13 +349,13 @@ if __name__ == "__main__":
 	(options, args) = parser.parse_args()
 
 
-	filenames = [ "xmpp.cfg", os.path.expanduser("~/.limagoldrc"),
-			"/etc/limagold.conf" ]
+	filenames = [ "/etc/limagold.conf", os.path.expanduser("~/.limagoldrc"),
+			"xmpp.cfg" ]
 	if options.file is not None:
-		filenames = [ options.file ] + filenames
+		filenames += [ options.file ]
 
 	config = configparser.SafeConfigParser()
-	config.read(filenames)
+	cfgfiles = config.read(filenames)
 
 	for section in [ "xmpp", "client", "ui", "messages" ]:
 		if not config.has_section(section):
@@ -409,6 +422,12 @@ if __name__ == "__main__":
 	xmpp.register_plugin("xep_0045") # Multi-User Chat
 	xmpp.register_plugin("xep_0199") # XMPP Ping
 	xmpp.register_plugin("encrypt-im") # encrypted stealth MUC
+
+	macros = {}
+	if config.has_section("macros"):
+		keys = config.options("macros")
+		for macro in keys:
+			macros[macro] = config.get("macros", macro)
 
 	if default_mode == "plain" or key is None:
 		xmpp.encrypt = False
@@ -555,6 +574,39 @@ if __name__ == "__main__":
 		log_status('You have joined as "%s"' % xmpp.nick)
 		show('You have joined as "%s"' % xmpp.nick)
 
+	def save_config():
+		if len(cfgfiles) == 0:
+			show("no config file")
+			return
+		cfgfile = cfgfiles[0]
+		cfg = configparser.SafeConfigParser()
+		cfg.read(cfgfile)
+		str_mode = "plain" if mode == PLAIN else "encrypt" \
+				if mode == GOLD else "stealth"
+		newcfg = {
+				"client": {
+					"mode": str_mode,
+					"bell": str(enable_bell) }
+		}
+		for section in newcfg:
+			for option in newcfg[section]:
+				cfg.set(section, option,
+						newcfg[section][option])
+		if not cfg.has_section("macros"):
+			cfg.add_section("macros")
+		for macro in cfg.options("macros"):
+			cfg.remove_option("macros", macro)
+		for macro in macros:
+			cfg.set("macros", macro, macros[macro])
+		if len(cfg.options("macros")) == 0:
+			cfg.remove_section("macros")
+		try:
+			with open(cfgfile, "w") as f:
+				cfg.write(f, True)
+			show('wrote config to "%s"' % cfgfile)
+		except Exception as e:
+			show("exception: %s" % e)
+
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
 	xmpp.add_online_listener(muc_online)
@@ -584,6 +636,43 @@ if __name__ == "__main__":
 			msg = line.strip()
 			if len(msg) == 0:
 				continue
+			if msg.startswith("/macro "):
+				show_input(msg)
+				text = msg[7:].strip()
+				split = None
+				try:
+					split = text.index("=")
+				except ValueError as e:
+					try:
+						split = text.index(":")
+					except ValueError as e:
+						show("I have no idea what to "
+								"do with "
+								"that...")
+						continue
+				cmd = text[:split].strip()
+				value = text[split + 1:].strip()
+				macros[cmd] = value
+				show("new macro: '%s' -> '%s'" % (cmd, value))
+				continue
+			elif msg.startswith("/dmacro "):
+				show_input(msg)
+				text = msg[8:].strip()
+				if text in macros:
+					del macros[text]
+					show("macro '%s' deleted" % text)
+				else:
+					show("no such macro")
+				continue
+			elif msg == "/macros" or msg == "/lmacros":
+				show_input(msg)
+				show("macros: %s" % ("none" if len(macros) == 0
+						else ", ".join([ '"%s"' % macro
+						for macro in macros ])))
+				continue
+			elif msg in macros:
+				show_input(msg)
+				msg = macros[msg]
 			if msg == "/help":
 				show_input(msg)
 				print_help()
@@ -782,6 +871,9 @@ if __name__ == "__main__":
 						for jid in participants ])
 				show("currently %d participants: %s" %
 						(len(nicks), ", ".join(nicks)))
+			elif msg == "/save":
+				show_input(msg)
+				save_config()
 			elif msg[0] == "/" and not msg.startswith("/me "):
 				show_input(msg)
 				show("unknown command")
