@@ -5,6 +5,7 @@ import sleekxmpp
 from sleekxmpp.xmlstream import ET
 from time import time
 import logging
+import re
 
 import encryptim
 
@@ -34,7 +35,6 @@ class Client(sleekxmpp.ClientXMPP):
 		self.room = room
 		self.nick = nick
 		self.online = False
-		self.sent = False
 		self.history = history
 		self.encrypted_msg_info = encrypted_msg_info
 
@@ -123,7 +123,7 @@ class Client(sleekxmpp.ClientXMPP):
 					nick, 'role')
 			affiliation = self.plugin['xep_0045'].getJidProperty(
 					self.room, nick, 'affiliation')
-		echo = nick == self.nick and self.sent
+		echo = nick == self.nick
 		body = msg['body']
 		msgtype = self.PLAIN
 		if len(msg['encrypted']['content']) != 0:
@@ -156,13 +156,22 @@ class Client(sleekxmpp.ClientXMPP):
 				and len(body) > len(self.nick) + 2:
 			text = body[len(self.nick) + 1:].strip()
 			if text[0] == ':' and len(text) > 1: # Manu-hack
-				text= text[1:].strip()
+				text = text[1:].strip()
 			for listener in self.mention_listeners:
 				listener(msg=text, nick=nick, jid=jid,
 						role=role,
 						affiliation=affiliation,
 						msgtype=msgtype,
-						echo=echo)
+						echo=echo,
+						body=body)
+		elif self.nick in re.split(r"\s|:|!|\?|,|;", body):
+			for listener in self.mention_listeners:
+				listener(msg=body, nick=nick, jid=jid,
+						role=role,
+						affiliation=affiliation,
+						msgtype=msgtype,
+						echo=echo,
+						body=body)
 		else:
 			for listener in self.message_listeners:
 				listener(msg=body, nick=nick,
@@ -231,7 +240,6 @@ class Client(sleekxmpp.ClientXMPP):
 		else:
 			sleekxmpp.ClientXMPP.send_message(self, mto=self.room,
 					mbody=msg, mtype='groupchat')
-		self.sent = True
 
 	def muc_send_encrypted(self, msg, plain=None):
 		if self.key is None:
@@ -241,14 +249,12 @@ class Client(sleekxmpp.ClientXMPP):
 		html = '<span data="%s">%s</span>' % (self.encode(msg), plain)
 		sleekxmpp.ClientXMPP.send_message(self, mto=self.room,
 				mbody=plain, mhtml=html, mtype='groupchat')
-		self.sent = True
 
 	def muc_send_stealth(self, msg):
 		message = self.Message(sto=self.room, stype='groupchat',
 				sfrom=None)
 		message['encrypted']['content'] = self.encode(msg)
 		message.send()
-		self.sent = True
 
 	def msg_send(self, to, msg, muc):
 		jid = to

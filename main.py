@@ -14,6 +14,7 @@ from client import Client
 import datetime
 
 _TIME_FORMAT = '%Y%m%dT%H:%M:%S'
+_PRINT_FORMAT = '%H:%M:%S'
 
 def time(at=None):
 	"""Stringify time in ISO 8601 format."""
@@ -26,8 +27,19 @@ def time(at=None):
 	st += ('Z' if tz == 'UTC' else tz)
 	return st
 
+def localtime(at=None):
+	if not at:
+		at = now()
+	if type(at) == float:
+		at = datetime.datetime.fromtimestamp(at)
+	st = at.strftime(_PRINT_FORMAT)
+	return st
+
 def utcnow():
 	return datetime.datetime.utcnow()
+
+def now():
+	return datetime.datetime.now()
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +47,7 @@ PROMPT = '%s%s '
 mode = '>'
 enable_bell = False
 no_colors = False
+show_timestamps = True
 
 PLAIN = '>'
 STEALTH = '$'
@@ -57,8 +70,10 @@ color_sequences = re.compile('\033\\[[^m]+?m')
 
 
 COLORS = [ "[31m", "[32m", "[33m", "[34m", "[35m", "[36m", "[37m" ]
-MENTION_COLOR = "[33m"
+MENTION_COLOR = "[93m"
 INPUT_COLOR = "[36m"
+STEALTH_COLOR = "[96m"
+ENCRYPTED_COLOR = "[33m" # "gold"
 
 def get_nick_color(nick):
 	md5 = hashlib.md5(nick.encode())
@@ -80,6 +95,10 @@ def show_raw(raw):
 
 def show(msg):
 	show_raw(escape_vt(msg))
+
+def show_input(msg):
+	show_raw("\033%s%s %s%s\033[0m" % (INPUT_COLOR, localtime(),
+			escape_vt(prompt()), escape_vt(msg)))
 
 class Help(object):
 	def __init__(self, usage=None, info=None, see=[], topic=None):
@@ -283,6 +302,7 @@ if __name__ == "__main__":
 	history = config.getboolean("client", "history", fallback=True)
 	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 	no_colors = not config.getboolean("ui", "colors", fallback=True)
+	show_timestamps = config.getboolean("ui", "timestamps", fallback=True)
 
 	mode = GOLD if key is not None else PLAIN
 
@@ -338,62 +358,92 @@ if __name__ == "__main__":
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
-		color = get_nick_color(nick)
+		color = INPUT_COLOR if echo else get_nick_color(nick)
+		normal_color = INPUT_COLOR if echo else "[0m"
+		t = localtime()
+		timestamp = "%s " % t if show_timestamps else ""
+		timestamp_nos = "%s" % t if show_timestamps else ""
 		if msgtype == xmpp.STEALTH:
-			if not echo:
-				if msg.startswith("/me "):
-					show_raw("$ \033%s*** %s\033[0m %s" %
-							(color, escape_vt(nick),
+			if msg.startswith("/me "):
+				show_raw("\033%s%s$\033%s*** %s\033%s %s" %
+						(STEALTH_COLOR, timestamp_nos,
+							color, escape_vt(nick),
+							normal_color,
 							escape_vt(msg[4:])))
-				else:
-					show_raw("$ \033%s<%s>\033[0m %s" %
-							(color, nick, msg))
+			else:
+				show_raw("\033%s%s$\033%s<%s>\033%s %s" %
+						(STEALTH_COLOR, timestamp_nos,
+							color, nick,
+							normal_color, msg))
 			log_msg("Q", msg, nick)
-		else:
-			if not echo:
-				if msg.startswith("/me "):
-					show_raw("\033%s*** %s\033[0m %s" %
-							(color, escape_vt(nick),
+		elif msgtype == xmpp.ENCRYPTED:
+			if msg.startswith("/me "):
+				show_raw("\033%s%s#\033%s*** %s\033%s %s" %
+						(ENCRYPTED_COLOR, timestamp_nos,
+							color, escape_vt(nick),
+							normal_color,
 							escape_vt(msg[4:])))
-				else:
-					show_raw("\033%s<%s>\033[0m %s" % (color,
-							escape_vt(nick),
+			else:
+				show_raw("\033%s%s#\033%s<%s>\033%s %s" %
+						(ENCRYPTED_COLOR, timestamp_nos,
+							color, escape_vt(nick),
+							normal_color,
 							escape_vt(msg)))
-			log_msg("M" if msgtype == xmpp.PLAIN else "E", msg,
-					nick)
+			log_msg("E", msg, nick)
+		else:
+			if msg.startswith("/me "):
+				show_raw("\033%s%s\033%s*** %s\033%s %s" %
+						(normal_color, timestamp, color,
+							escape_vt(nick),
+							normal_color,
+							escape_vt(msg[4:])))
+			else:
+				show_raw("\033%s%s\033%s<%s>\033%s %s" %
+						(normal_color, timestamp,
+						color, escape_vt(nick),
+						normal_color, escape_vt(msg)))
+			log_msg("M", msg, nick)
 
-	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo):
+	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo, body):
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
 			sys.stdout.write("\007")
 		color = get_nick_color(nick)
+		msgcolor = INPUT_COLOR if echo else MENTION_COLOR
+		timestamp = "\033%s%s " % (MENTION_COLOR, localtime()) if \
+				show_timestamps else ""
+		timestamp_nos = "\033%s%s" % (MENTION_COLOR, localtime()) if \
+				show_timestamps else ""
 		if msgtype == xmpp.STEALTH:
-			if not echo:
-				show_raw("\033%s$ \033%s<<<%s>>>\033%s "
-						"%s\033[0m" % \
-						(MENTION_COLOR, color, nick,
-							MENTION_COLOR, msg))
-			log_msg("Q", "%s: %s" % (xmpp.nick, msg), nick)
+			show_raw("%s\033%s$\033%s<<<%s>>>\033%s " "%s\033[0m" %
+					(timestamp_nos, msgcolor, color,
+						nick, msgcolor, msg))
+			log_msg("Q", body, nick)
+		elif msgtype == xmpp.ENCRYPTED:
+			show_raw("%s\033%s#\033%s<<<%s>>>\033%s " "%s\033[0m" %
+					(timestamp_nos, msgcolor, color,
+						nick, msgcolor, msg))
+			log_msg("E", body, nick)
 		else:
-			if not echo:
-				show_raw("\033%s<<<%s>>>\033%s %s\033[0m" %
-						(color, nick, MENTION_COLOR,
-							msg))
-			log_msg("M" if msgtype == xmpp.PLAIN else "E",
-					"%s: %s" % (xmpp.nick, msg), nick)
+			show_raw("%s\033%s<<<%s>>>\033%s %s\033[0m" %
+					(timestamp, color, nick, msgcolor, msg))
+			log_msg("M", body, nick)
 
 	def priv_msg(msg, jid):
 		if enable_bell:
 			sys.stdout.write("\007")
-		show_raw("\033%s<PRIV#%s> %s\033[0m" % (MENTION_COLOR,
-				escape_vt(jid), escape_vt(msg)))
+		timestamp = "%s " % localtime() if show_timestamps else ""
+		show_raw("\033%s%s<PRIV#%s> %s\033[0m" % (MENTION_COLOR,
+				timestamp, escape_vt(jid), escape_vt(msg)))
 
 	def muc_online(jid, nick, role, affiliation, localjid):
-		show("*** online: %s (%s; %s)" % (nick, jid, role))
+		timestamp = "%s " % localtime() if show_timestamps else ""
+		show("%s*** online: %s (%s; %s)" % (timestamp, nick, jid, role))
 		log_status("%s <%s> has joined" % (nick, jid))
 
 	def muc_offline(jid, nick):
-		show("*** offline: %s" % nick)
+		timestamp = "%s " % localtime() if show_timestamps else ""
+		show("%s*** offline: %s" % (timestamp, nick))
 		log_status("%s has left" % nick)
 
 	def muc_joined():
@@ -416,6 +466,7 @@ if __name__ == "__main__":
 	readline.read_init_file()
 	readline.parse_and_bind("tab: complete")
 	readline.set_completer(NickCompleter(xmpp).complete)
+	rl.set_delete_input()
 
 	try:
 		while True:
@@ -423,34 +474,40 @@ if __name__ == "__main__":
 				sys.stdout.write("\033%s" % INPUT_COLOR)
 				sys.stdout.flush()
 			line = input(prompt())
-			#line = rl.readline(prompt())
 			if not line:
 				continue
 			msg = line.strip()
 			if len(msg) == 0:
 				continue
 			if msg == "/help":
+				show_input(msg)
 				print_help()
 			elif msg.startswith("/help "):
+				show_input(msg)
 				text = msg[6:].strip()
 				show_help(text)
 			elif msg == "/quit":
+				show_input(msg)
 				break
 			elif msg == "/encrypt" or msg == "/gold":
+				show_input(msg)
 				if xmpp.key is None:
 					show("no encryption key set")
 				else:
 					xmpp.encrypt = True
 					mode = GOLD
 			elif msg == "/plain":
+				show_input(msg)
 				xmpp.encrypt = False
 				mode = PLAIN
 			elif msg == "/stealth":
+				show_input(msg)
 				if xmpp.key is None:
 					show("no encryption key set")
 				else:
 					mode = STEALTH
 			elif msg == "/status":
+				show_input(msg)
 				show("key %s, mode is %s" % ("available" if
 						xmpp.key is not None else
 						"not available", "plaintext" if
@@ -458,6 +515,7 @@ if __name__ == "__main__":
 						mode == GOLD else "stealth" if
 						mode == STEALTH else "strange"))
 			elif msg.startswith("/msg "):
+				show_input(msg)
 				nick, text = None, None
 				try:
 					nick = msg[5:msg[5:].index(" ") + 5] \
@@ -468,6 +526,7 @@ if __name__ == "__main__":
 				if nick is not None:
 					xmpp.msg_send(nick, text, True)
 			elif msg.startswith("/enc "):
+				show_input(msg)
 				text = msg[5:].strip()
 				if xmpp.key is None:
 					show("error: no key set")
@@ -478,6 +537,7 @@ if __name__ == "__main__":
 					except Exception as e:
 						show("exception: %s" % e)
 			elif msg.startswith("/dec "):
+				show_input(msg)
 				text = msg[5:].strip()
 				if xmpp.key is None:
 					show("error: no key set")
@@ -580,9 +640,11 @@ if __name__ == "__main__":
 				text = msg[5:].strip()
 				xmpp.muc_send(text)
 			elif msg == "/bell":
+				show_input(msg)
 				show("bell is %s" % ("enabled" if enable_bell
 					else "disabled"))
 			elif msg.startswith("/bell "):
+				show_input(msg)
 				text = msg[6:].strip()
 				if text == "on":
 					enable_bell = True
@@ -593,6 +655,7 @@ if __name__ == "__main__":
 				else:
 					show("syntax error")
 			elif msg[0] == "/" and not msg.startswith("/me "):
+				show_input(msg)
 				show("unknown command")
 			else:
 				if mode == STEALTH:

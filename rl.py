@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # vim:set ts=8 sts=8 sw=8 tw=80 noet cc=80:
 
-from ctypes import cdll, cast, c_int, c_char_p, c_void_p
+from ctypes import cdll, cast, c_int, c_char_p, c_void_p, CFUNCTYPE
 from ctypes.util import find_library
 import readline as r
 import sys
@@ -10,8 +10,12 @@ rl = cdll.LoadLibrary(find_library("readline"))
 
 rl_readline_state = c_int.in_dll(rl, "rl_readline_state")
 rl_point = c_int.in_dll(rl, "rl_point")
-rl_end = c_int.in_dll(rl, "rl_end")
+rl_done = c_int.in_dll(rl, "rl_done")
 
+RL_CALLBACK = CFUNCTYPE(c_int, c_int, c_int)
+
+rl_set_prompt = rl.rl_set_prompt
+rl_set_prompt.argtypes = [ c_char_p ]
 rl_replace_line = rl.rl_replace_line
 rl_replace_line.argtypes = [ c_char_p, c_int ]
 rl_save_prompt = rl.rl_save_prompt
@@ -20,15 +24,49 @@ rl_copy_text = rl.rl_copy_text
 rl_copy_text.argtypes = [ c_int, c_int ]
 rl_copy_text.restype = c_void_p
 rl_redisplay = rl.rl_redisplay
+rl_bind_key = rl.rl_bind_key
+rl_bind_key.argtypes = [ c_int, RL_CALLBACK ]
 _readline = rl.readline
 _readline.argtypes = [ c_char_p ]
 _readline.restype = c_void_p
 
 RL_STATE_DONE = 0x1000000
 
+control_character_mask = 0x1f
+CTRL = lambda c: ord(c) & control_character_mask
+RETURN = CTRL("M")
+ESC = CTRL("[")
+
 stdlibc = cdll.LoadLibrary(find_library("c"))
 free = stdlibc.free
 free.argtypes = [ c_void_p ]
+
+delete_input = False
+
+def handle_return(x, y):
+	if not delete_input:
+		rl_done.value = 1
+		print()
+		return 0
+	line = r.get_line_buffer()
+	if line is not None and len(line) > 0:
+		r.add_history(line)
+
+	rl_set_prompt(c_char_p(b""))
+	rl_replace_line(c_char_p(b""), 0)
+	rl_redisplay()
+	rl_replace_line(c_char_p(line.encode()), 1)
+	rl_done.value = 1
+	return 0
+
+def handle_clear(x, y):
+	rl_replace_line(c_char_p(b""), 0)
+	rl_redisplay()
+	return 0
+
+def set_delete_input(value=True):
+	global delete_input
+	delete_input = value
 
 def get_and_free(voidp):
 	p = cast(voidp, c_char_p)
@@ -62,3 +100,12 @@ def readline(prompt):
 	if data is None:
 		raise EOFError()
 	return get_and_free(data)
+
+_enter_handler = RL_CALLBACK(handle_return)
+_clear_handler = RL_CALLBACK(handle_clear)
+def init():
+	rl_bind_key(RETURN, _enter_handler)
+	rl_bind_key(ESC, _clear_handler)
+	pass
+
+r.set_startup_hook(init)
