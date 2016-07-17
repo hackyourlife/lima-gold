@@ -409,7 +409,8 @@ if __name__ == "__main__":
 	room = config.get("xmpp", "room")
 	nick = config.get("xmpp", "nick")
 	key = config.get("xmpp", "key", fallback=None)
-	logfile_name = config.get("client", "logfile", fallback="xmpp.log")
+	logfile_name = os.path.expanduser(config.get("client", "logfile",
+			fallback="xmpp.log"))
 	enable_bell = config.getboolean("client", "bell", fallback=False)
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)

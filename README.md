@@ -36,3 +36,9 @@ encrypted messages, the content is embedded in an attribute in a HTML tag.
 Invisible messages use a custom `<message>` stanza without a `body` which is is
 relayed by the server but ignored by any regular client. Those invisible
 messages also do not appear in the server history, which a client can request.
+
+Archlinux-Package
+-----------------
+To install lima-gold as a package on Archlinux, run `makepkg` and install the
+package. You will have to create a config file in a well-known location and
+configure the logfile config option to an absolute path.
