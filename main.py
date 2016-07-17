@@ -346,6 +346,9 @@ if __name__ == "__main__":
 			help="Replacement text for encrypted links")
 	parser.add_option("-S", "--section", dest="section",
 			help="Replacement text for encrypted sections")
+	parser.add_option("-J", "--no-join-log", dest="joinlog",
+			action="store_false", default=True,
+			help="Disable join-time join messages")
 	(options, args) = parser.parse_args()
 
 
@@ -413,6 +416,7 @@ if __name__ == "__main__":
 			fallback=encrypted_link_info)
 	encrypted_section_info = config.get("messages", "encrypted_section",
 			fallback=encrypted_section_info)
+	join_log = options.joinlog
 
 	mode = GOLD if key is not None else PLAIN
 
@@ -555,12 +559,13 @@ if __name__ == "__main__":
 	def muc_online(jid, nick, role, affiliation, localjid, info):
 		global longest
 
-		if history:
+		if history or not info:
 			timestamp = "%s " % localtime() if show_timestamps \
 					else ""
 			show("%s*** online: %s (%s; %s)" % (timestamp, nick,
 				jid, role))
-		log_status("%s <%s> has joined" % (nick, jid))
+		if not info or join_log:
+			log_status("%s <%s> has joined" % (nick, jid))
 
 		if len(nick) > longest:
 			longest = len(nick)
