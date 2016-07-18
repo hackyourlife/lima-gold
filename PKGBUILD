@@ -9,7 +9,7 @@ depends=("python" "python-sleekxmpp" "python-crypto")
 source=(client.py encryptim.py main.py rl.py setup.py)
 md5sums=("225d06e97466329015814a9ee1c66db6"
          "851a9f27429ca1dd6792cde39b061d2d"
-         "a425be51c8414c722cdeee6013bc833b"
+         "8a83ac03a1d980feada258973640b71c"
          "5e1c0e2735ee8750ee2f29e1a4c3eefa"
          "be06c215cf34d5af64287366bcbc48de")
 

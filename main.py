@@ -88,7 +88,8 @@ def prompt():
 	return PROMPT % (xmpp.nick, mode)
 
 def escape_vt(text):
-	return text.replace("\033", "^[")
+	# for now, just remove ESC and CSI chars
+	return text.replace("\033", "^[").replace("\x9b", "CSI")
 
 def show_raw(raw):
 	if no_colors:
