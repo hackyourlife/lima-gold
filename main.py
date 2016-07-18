@@ -10,6 +10,8 @@ import readline
 import re
 import hashlib
 import rl
+import rp
+import json
 from optparse import OptionParser
 from getpass import getpass
 from client import Client
@@ -457,6 +459,14 @@ if __name__ == "__main__":
 			definitions[definition] = config.get("definitions",
 					definition)
 
+	regex_program = []
+	if config.has_section("regex_programs"):
+		program = config.get("regex_programs", "default", fallback=None)
+		if program is not None:
+			regex_program = json.loads(program)
+	regex_default_program = rp.compile(regex_program)
+
+
 	if default_mode == "plain" or key is None:
 		xmpp.encrypt = False
 		mode = PLAIN
@@ -646,6 +656,16 @@ if __name__ == "__main__":
 		if len(cfg.options("definitions")) == 0:
 			cfg.remove_section("definitions")
 
+		if not cfg.has_section("regex_programs"):
+			cfg.add_section("regex_programs")
+		for regex in cfg.options("regex_programs"):
+			cfg.remove_option("regex_programs", regex)
+		if len(regex_program) != 0:
+			cfg.set("regex_programs", "default",
+					json.dumps(regex_program))
+		if len(cfg.options("regex_programs")) == 0:
+			cfg.remove_section("regex_programs")
+
 		try:
 			with open(cfgfile, "w") as f:
 				cfg.write(f, True)
@@ -756,6 +776,45 @@ if __name__ == "__main__":
 						for definition in
 								definitions ])))
 				continue
+			elif msg.startswith("/regex "):
+				show_input(msg)
+				text = msg[7:].strip()
+				m = re.match(r'([0-9]+)(.)"(.*)" \2 "(.*)"',
+						text)
+				if m is None:
+					show("I have no idea what to do with "
+							"that...")
+					continue
+				where = int(m.group(1))
+				left = m.group(3)
+				right = m.group(4)
+				regex_program = regex_program[:where] + \
+						[ (left, right) ] + \
+						regex_program[where:]
+				regex_default_program = \
+						rp.compile(regex_program)
+				show("added at %d: '%s' -> '%s'" % (where,
+						left, right))
+				continue
+			elif msg.startswith("/dregex "):
+				show_input(msg)
+				try:
+					text = int(msg[8:].strip())
+					del regex_program[text]
+					regex_default_program = \
+							rp.compile(regex_program)
+					show("deleted at %d" % text)
+				except Exception:
+					show("a (correct) number, please!")
+				continue
+			elif msg == "/regexes" or msg == "/lregex":
+				show_input(msg)
+				show("regexes: %s" % ("none" if
+						len(regex_program) == 0 else
+						", ".join([ '"%s" -> "%s"' %
+							tuple(p) for p in
+							regex_program ])))
+				continue
 			elif msg in macros:
 				show_input(msg)
 				msg = macros[msg]
@@ -763,6 +822,7 @@ if __name__ == "__main__":
 			for definition in definitions:
 				msg = msg.replace(definition,
 						definitions[definition])
+			msg = rp.run(regex_default_program, msg)
 
 			if msg == "/help":
 				show_input(msg)
@@ -774,6 +834,9 @@ if __name__ == "__main__":
 			elif msg == "/quit":
 				show_input(msg)
 				break
+			elif msg.startswith("/echo "):
+				text = msg[6:].strip()
+				show(text)
 			elif msg == "/encrypt" or msg == "/gold":
 				show_input(msg)
 				if xmpp.key is None:
