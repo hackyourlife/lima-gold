@@ -516,8 +516,9 @@ if __name__ == "__main__":
 			else:
 				show_raw("\033%s%s$\033%s<%s>\033%s %s" %
 						(STEALTH_COLOR, timestamp_nos,
-							color, nick,
-							normal_color, msg))
+							color, escape_vt(nick),
+							normal_color,
+							escape_vt(msg)))
 			log_msg("Q", msg, nick)
 		elif msgtype == xmpp.ENCRYPTED:
 			if msg.startswith("/me "):
@@ -560,16 +561,19 @@ if __name__ == "__main__":
 		if msgtype == xmpp.STEALTH:
 			show_raw("%s\033%s$\033%s<<<%s>>>\033%s " "%s\033[0m" %
 					(timestamp_nos, msgcolor, color,
-						nick, msgcolor, msg))
+						escape_vt(nick), msgcolor,
+						escape_vt(msg)))
 			log_msg("Q", body, nick)
 		elif msgtype == xmpp.ENCRYPTED:
 			show_raw("%s\033%s#\033%s<<<%s>>>\033%s " "%s\033[0m" %
 					(timestamp_nos, msgcolor, color,
-						nick, msgcolor, msg))
+						escape_vt(nick), msgcolor,
+						escape_vt(msg)))
 			log_msg("E", body, nick)
 		else:
 			show_raw("%s\033%s<<<%s>>>\033%s %s\033[0m" %
-					(timestamp, color, nick, msgcolor, msg))
+					(timestamp, color, escape_vt(nick),
+						msgcolor, escape_vt(msg)))
 			log_msg("M", body, nick)
 
 	def priv_msg(msg, jid):
