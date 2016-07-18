@@ -58,7 +58,7 @@ import rp
 # [regex_programs]
 # default = <the-json-text>
 program = [
-	('^(?:/[peq] )?/rot13\s*', '$-32'),				# 000000
+	('^(?:/[peq] )?/rot13\s*', '$-33'),				# 000000
 	('^(?:/[peq] )?/rot13\s*$', '/echo missing argument'),		# 000001
 	('^(/[peq] )?/rot13\s*', r'\1/rot13 ¸'),			# 000002
 	('^((?:/[peq] )?/rot13 .*)¸a(.*)$', r'\1˞n\2'),			# 000003

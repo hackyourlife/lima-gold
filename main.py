@@ -994,7 +994,10 @@ if __name__ == "__main__":
 					xmpp.muc_send(msg)
 			elif msg.startswith("/say "):
 				text = msg[5:].strip()
-				xmpp.muc_send(text)
+				if mode == STEALTH:
+					xmpp.muc_send(text, stealth=True)
+				else:
+					xmpp.muc_send(text)
 			elif msg == "/bell":
 				show_input(msg)
 				show("bell is %s" % ("enabled" if enable_bell
