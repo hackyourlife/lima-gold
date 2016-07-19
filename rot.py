@@ -85,14 +85,18 @@ def crack(text, lang):
 
 ascii_only = re.compile(r"\W")
 def crackx(text, lang, only_exact=False):
-	threshold = 2
+	def get_words(text):
+		return [ w.strip() for w in ascii_only.sub(" ", text).split(" ")
+				if len(w.strip()) > 0 ]
+
 	try:
 		dictionary = get_dict(lang)
 	except: # try without dictionary
 		return text if only_exact else crack(text, lang)[0]
 
 	# skip expensive decoding if it is already plaintext
-	words = ascii_only.sub(" ", text).split(" ")
+	words = get_words(text)
+	threshold = max(int(len(words) / 2), 1 if len(words) == 1 else 2)
 	if sum([ 1 for word in words if word.lower() in dictionary ]) >= \
 			threshold:
 		return text
@@ -102,10 +106,12 @@ def crackx(text, lang, only_exact=False):
 	n = 0
 	for result in results:
 		n += 1
-		words = ascii_only.sub(" ", result.text).split(" ")
-		cnt = sum([ 1 for word in words if word.lower() in dictionary ])
+		cnt = sum([ 1 for word in get_words(result.text) \
+				if word.lower() in dictionary ])
 		if cnt >= threshold:
 			return result
 		matches[cnt] = result
-	best = sorted(matches.keys())[-1]
-	return text if only_exact else best
+	result = matches[sorted(matches.keys())[-1]]
+	cnt = sum([ 1 for word in get_words(result.text) \
+			if word.lower() in dictionary ])
+	return result if cnt > 0 or not only_exact else text

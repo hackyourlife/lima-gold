@@ -902,8 +902,7 @@ if __name__ == "__main__":
 			print("error: no key set")
 		else:
 			try:
-				xmpp.muc_send(text,
-						stealth=True)
+				xmpp.muc_send(text, stealth=True)
 			except Exception as e:
 				print("exception: %s" % e)
 
