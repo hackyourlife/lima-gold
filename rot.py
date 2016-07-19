@@ -50,6 +50,17 @@ def get_dict(lang):
 	dicts[lang] = _get_dict(lang)
 	return dicts[lang]
 
+def is_supported(lang):
+	try:
+		default_frequencies(lang)
+	except:
+		return False
+	try:
+		get_dict(lang)
+	except ValueError:
+		return False
+	return True
+
 def frequencies(text):
 	return { l: text.count(l) / len(text) for l in set(text) }
 
@@ -73,15 +84,28 @@ def crack(text, lang):
 	return [ Result(26 - c[i], rot(text, c[i]), i) for i in candidates ]
 
 ascii_only = re.compile(r"\W")
-def crackx(text, lang):
+def crackx(text, lang, only_exact=False):
+	threshold = 2
 	try:
 		dictionary = get_dict(lang)
 	except: # try without dictionary
-		return crack(text, lang)[0]
+		return text if only_exact else crack(text, lang)[0]
+
+	# skip expensive decoding if it is already plaintext
+	words = ascii_only.sub(" ", text).split(" ")
+	if sum([ 1 for word in words if word.lower() in dictionary ]) >= \
+			threshold:
+		return text
+
 	results = crack(text, lang)
+	matches = {}
+	n = 0
 	for result in results:
+		n += 1
 		words = ascii_only.sub(" ", result.text).split(" ")
-		for word in words:
-			if word.lower() in dictionary:
-				return result
-	return results[0]
+		cnt = sum([ 1 for word in words if word.lower() in dictionary ])
+		if cnt >= threshold:
+			return result
+		matches[cnt] = result
+	best = sorted(matches.keys())[-1]
+	return text if only_exact else best

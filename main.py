@@ -15,6 +15,7 @@ import json
 import rot
 from optparse import OptionParser
 from getpass import getpass
+from random import randint
 from client import Client
 from api import noshow, help, get_help
 
@@ -55,6 +56,8 @@ mode = '>'
 enable_bell = False
 no_colors = False
 show_timestamps = True
+decode_caesar = False
+caesar_lang = None
 
 PLAIN = '>'
 STEALTH = '$'
@@ -470,6 +473,8 @@ if __name__ == "__main__":
 	rpad = config.getboolean("ui", "rpadnicks", fallback=False)
 	no_colors = not config.getboolean("ui", "colors", fallback=True)
 	show_timestamps = config.getboolean("ui", "timestamps", fallback=True)
+	decode_caesar = config.getboolean("ui", "caesar", fallback=False)
+	caesar_lang = config.get("ui", "caesar_lang", fallback="en")
 	encrypted_message_info = config.get("messages", "encrypted",
 			fallback=encrypted_message_info)
 	encrypted_link_info = config.get("messages", "encrypted_link",
@@ -478,6 +483,9 @@ if __name__ == "__main__":
 			fallback=encrypted_section_info)
 
 	mode = GOLD if key is not None else PLAIN
+
+	if not rot.is_supported(caesar_lang):
+		caesar_lang = "en"
 
 	xmpp = Client(jid, password, room, nick, key, history=history,
 			encrypted_msg_info=encrypted_message_info)
@@ -599,6 +607,18 @@ if __name__ == "__main__":
 						normal_color, escape_vt(msg)))
 			log_msg("M", msg, nick)
 
+		if decode_caesar:
+			match = url_regex.search(msg)
+			if match is not None:
+				return
+			try:
+				result = rot.crackx(msg, caesar_lang, True)
+				if result.text != msg:
+					show("rot(%d): %s" % (result.n,
+							result.text))
+			except:
+				pass
+
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo, body):
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
@@ -626,6 +646,18 @@ if __name__ == "__main__":
 					(timestamp, color, escape_vt(nick),
 						msgcolor, escape_vt(msg)))
 			log_msg("M", body, nick)
+
+		if decode_caesar:
+			match = url_regex.search(msg)
+			if match is not None:
+				return
+			try:
+				result = rot.crackx(msg, caesar_lang, True)
+				if result.text != msg:
+					show("rot(%d): %s" % (result.n,
+							result.text))
+			except:
+				pass
 
 	def priv_msg(msg, jid):
 		if enable_bell:
@@ -670,7 +702,10 @@ if __name__ == "__main__":
 		newcfg = {
 				"client": {
 					"mode": str_mode,
-					"bell": str(enable_bell) }
+					"bell": str(enable_bell) },
+				"ui": {
+					"caesar": str(decode_caesar),
+					"caesar_lang": str(caesar_lang) }
 		}
 		for section in newcfg:
 			for option in newcfg[section]:
@@ -1053,7 +1088,10 @@ if __name__ == "__main__":
 			see=["/drot", "/crot"])
 	def _rot(n, text):
 		try:
-			n = int(n)
+			if n == "r":
+				n = randint(1, 26)
+			else:
+				n = int(n)
 			send(rot.rot(text, n))
 		except:
 			show("not a number!")
@@ -1066,12 +1104,15 @@ if __name__ == "__main__":
 			args={	"p":	"send this message as plaintext",
 				"e":	"send this message in encrypted form",
 				"q":	"send this as a stealth message",
-				"n":	"the offset",
+				"n":	"the offset (choose \"r\" for random)",
 				"text":	"the text you want to encrypt"},
 			see=["/rot", "/drot", "/crot"])
 	def _rotx(m, n, text):
 		try:
-			n = int(n)
+			if n == "r":
+				n = randint(1, 26)
+			else:
+				n = int(n)
 			text = rot.rot(text, n)
 			if m == "p":
 				xmpp.muc_send(text, enc=False)
@@ -1146,6 +1187,32 @@ if __name__ == "__main__":
 		except Exception as e:
 			show("exception: %s" % str(e))
 
+	@help(synopsis="/carot [lang|off]", description="Enable automatic "
+			"decoding of caesar text using a given language.",
+			args={	"lang":	"use this language for decoding",
+				"off":	"disable automatic decoding"},
+			see=["/crot", "/cnrot"])
+	def _carot(arg=None):
+		global decode_caesar, caesar_lang
+		if arg is None:
+			show("automatic caesar decoding is %s" %
+					("enabled for language %s" % \
+							caesar_lang if \
+							decode_caesar \
+							else "disabled"))
+		else:
+			if rot.is_supported(arg):
+				decode_caesar = True
+				caesar_lang = arg
+				show("automatic caesar decoding is now enabled "
+						"for language %s" % caesar_lang)
+			elif arg == "off":
+				decode_caesar = False
+				show("automatic caesar decoding is now "
+						"disabled")
+			else:
+				show("syntax error")
+
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
 	add_command("plain", _plain)
@@ -1173,6 +1240,7 @@ if __name__ == "__main__":
 	add_command("drot", _drot)
 	add_command("crot", _crot)
 	add_command("cnrot", _cnrot)
+	add_command("carot", _carot)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
