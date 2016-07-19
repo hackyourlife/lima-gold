@@ -99,7 +99,7 @@ def crackx(text, lang, only_exact=False):
 	threshold = max(int(len(words) / 2), 1 if len(words) == 1 else 2)
 	if sum([ 1 for word in words if word.lower() in dictionary ]) >= \
 			threshold:
-		return text
+		return Result(0, text, cost(text, default_frequencies(lang)))
 
 	results = crack(text, lang)
 	matches = {}
@@ -110,8 +110,10 @@ def crackx(text, lang, only_exact=False):
 				if word.lower() in dictionary ])
 		if cnt >= threshold:
 			return result
-		matches[cnt] = result
+		if cnt not in matches:
+			matches[cnt] = result
 	result = matches[sorted(matches.keys())[-1]]
 	cnt = sum([ 1 for word in get_words(result.text) \
 			if word.lower() in dictionary ])
-	return result if cnt > 0 or not only_exact else text
+	return result if cnt > 0 or not only_exact else \
+			Result(0, text, cost(text, default_frequencies(lang)))
