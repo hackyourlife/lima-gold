@@ -12,9 +12,11 @@ import hashlib
 import rl
 import rp
 import json
+import rot
 from optparse import OptionParser
 from getpass import getpass
 from client import Client
+from api import noshow, help, get_help
 
 import datetime
 
@@ -108,78 +110,17 @@ def show_input(msg):
 			escape_vt(prompt()), escape_vt(msg)))
 
 class Help(object):
-	def __init__(self, usage=None, info=None, see=[], topic=None):
-		self.iscommand = usage is not None
-		self.usage = usage
+	def __init__(self, synopsis=None, description=None, args={}, info=None,
+			see=[], topic=None):
+		self.iscommand = synopsis is not None
+		self.synopsis = synopsis
+		self.description = description
+		self.args = args
 		self.info = info
 		self.see = see
+		self.topic = topic
 
-online_help = { "/help": Help("/help [command]", "shows help"),
-		"/quit": Help("/quit", "quit the client"),
-		"/encrypt": Help("/encrypt", "switch to encrypted (gold) mode. "
-				"Everyone will see, that there was a message, "
-				"but only users with the key can read them",
-				see=["/plain", "/stealth", "/status", "modes"]),
-		"/plain": Help("/plain", "switch to plaintext mode. This is the"
-				" mode, every XMPP client supports.",
-				see=["/encrypt", "/stealth", "/status",
-					"modes"]),
-		"/gold": Help("/gold", "alias for /encrypt", see=["/encrypt",
-				"/stealth", "/status", "modes"]),
-		"/stealth": Help("/stealth", "switch to stealth mode. Messages "
-				"are sent encrypted and regular XMPP clients "
-				"will not see the message at all",
-				see=["/encrypt", "/plain", "/status", "modes"]),
-		"/status": Help("/status", "show the current status.",
-				see=["/encrypt", "/plain", "/stealth",
-					"modes"]),
-		"/msg": Help("/msg nick|jid message", "send a private message "
-				"to \"nick\" or \"jid\"."),
-		"/enc": Help("/enc text", "encrypt text and display the result "
-				"locally. Probably only useful for debugging.",
-				see=["/dec", "/encr"]),
-		"/dec": Help("/dec text", "decrypt text and display the result "
-				"locally. Probably only useful for debugging.",
-				see=["/enc", "/encr"]),
-		"/encr": Help("/encr text", "encrypt text in the same way as "
-				"/enc does, but send the result unencrypted "
-				"over XMPP. Probably only useful to annoy "
-				"someone.", see=["/enc", "/dec"]),
-		"/e": Help("/e text", "send encrypted text, exactly in the same"
-				"way as in the \"encrypt\" mode, but without "
-				"switching the mode.", see=["/encrypt"]),
-		"/p": Help("/p text", "send plain text, exactly in the same "
-				"way as in the \"plain\" mode, but without "
-				"switching the mode.", see=["/plain"]),
-		"/q": Help("/q text", "send text quietly (stealth), exactly in "
-				"the same way as in the \"stealth\" mode, but "
-				"without switching the mode.",
-				see=["/stealth"]),
-		"/say": Help("/say text", "send text literally. This allows to "
-				"start a message with a \"/\"."),
-		"/me": Help("/me text", "send a message starting with \"/me\". "
-				"You know, why this might be useful..."),
-		"/bell": Help("/bell [on|off]", "sets or shows the usage of the"
-				" terminal's bell. If enabled, the bell will "
-				"ring if a message is received."),
-		"/es": Help("/es plain$encrypted", "send a message whose plain "
-				"section is sent unmodified, but the encrypted "
-				"section is replaced with a [censored] message "
-				"for all normal clients. To escape the "
-				"separator character (\"$\") prefix it with a "
-				"\"for the cheat, set \\$21 = $33\".",
-				see=["/e", "/eq", "/el"]),
-		"/eq": Help("/eq plain$encrypted", "send a message whose plain "
-				"section is sent unmodified, but the encrypted "
-				"section is completely removed for all normal "
-				"clients. To escape the separator character "
-				"(\"$\") prefix it with a \"\\\", e.g. "
-				"\"for the cheat, set \\$21 = $33\".",
-				see=["/e", "/es", "/el"]),
-		"/el": Help("/el text", "send a message where everything "
-				"starting at the first link is [encrypted].",
-				see=["/e", "/es", "/eq"]),
-		"/ls": Help("/ls [detail]", "list all users in the room"),
+online_help = {
 		"/macro": Help("/macro text = replacement", "define a new "
 				"macro. They are evaluated on the input text "
 				"and can therefore invoke any command. However,"
@@ -199,9 +140,6 @@ online_help = { "/help": Help("/help [command]", "shows help"),
 				see=["/def", "/defs"]),
 		"/defs": Help("/defs", "lists all currently defined "
 				"definitions.", see=["/def", "/undef"]),
-		"/save": Help("/save", "saves the configuration. Only the "
-				"default mode, the bell setting and the macros "
-				"are saved."),
 		"modes": Help(topic="Modes", info="There exist 3 different "
 				"modes of operation: plaintext, encrypted and "
 				"stealth mode. They influence how messages are "
@@ -290,11 +228,17 @@ def show_help(subject):
 	if subject in online_help:
 		hlp = online_help[subject]
 		if hlp.iscommand:
-			text = "COMMAND: %s\nINFO: %s" % (hlp.usage, hlp.info)
+			text = "SYNOPSIS\n  %s\n\nDESCRIPTION\n  %s" % \
+					(hlp.synopsis, hlp.description)
+			if len(hlp.args) > 0:
+				a = "\n\n".join([ "  %s\n      %s" % \
+							(arg, hlp.args[arg])
+						for arg in hlp.args ])
+				text += "\n\nARGUMENTS:\n%s" % a
 		else:
-			text = hlp.info
+			text = "TOPIC: %s\n\n%s" % (hlp.topic, hlp.info)
 		if len(hlp.see) > 0:
-			text += "\nSEE ALSO: %s" % ", ".join(hlp.see)
+			text += "\n\nSEE ALSO\n  %s" % ", ".join(hlp.see)
 		show(text)
 	else:
 		show("no help entry found")
@@ -317,6 +261,102 @@ class NickCompleter(object):
 			return self.matches[state]
 		except IndexError:
 			return None
+
+commands = {}
+def add_command(name, callback):
+	commands[name] = callback
+	help_data = get_help(callback)
+	if help_data is not None:
+		online_help["/%s" % name] = Help(**help_data)
+
+def parse_args(line, count=None):
+	whitespace = [ "\t", "\r", "\n", " " ]
+	args = []
+	s = 0
+	a = ""
+	for i in range(len(line)):
+		if count is not None and len(args) >= count:
+			if len(line) > i:
+				args += [ line[i:] ]
+			break
+		c = line[i]
+		if s == 0: # init
+			if c == '"':
+				s = 3
+			elif c == "'":
+				s = 4
+			elif c not in whitespace:
+				s = 1
+				a += c
+		elif s == 1: # normal
+			if c in whitespace:
+				if len(a) > 0:
+					args += [ a ]
+					a = ""
+				s = 2
+			else:
+				a += c
+		elif s == 2: # whitespace
+			if c == '"':
+				s = 3
+			elif c == "'":
+				s = 4
+			elif c not in whitespace:
+				s = 1
+				a += c
+		elif s == 3: # "quote"
+			if c == '"':
+				s = 1
+			elif c == "\\":
+				s = 5
+			else:
+				a += c
+		elif s == 4: # 'quote'
+			if c == "'":
+				s = 1
+			elif c == "\\":
+				s = 6
+			else:
+				a += c
+		elif s == 5: # "quote": escape
+			a += c
+			s = 3
+		elif s == 6: # 'quote': escape
+			a += c
+			s = 4
+		else:
+			raise Exception("unknown state!")
+	if len(a) > 0:
+		args += [ a ]
+	return args
+
+def execute_command(line):
+	line = line.strip()
+	if len(line) == 0:
+		return False
+	cmd = line.split(" ")[0]
+	args = line[len(cmd) + 1:].strip()
+	if len(args) == 0:
+		args = None
+	if cmd[0] != "/":
+		return False
+	cmd = cmd[1:]
+	try:
+		c = commands[cmd]
+		if not hasattr(c, "noshow") or not c.noshow:
+			show_input(line)
+		if args is None:
+			c()
+		else:
+			nargs = c.__code__.co_argcount
+			args = parse_args(args, nargs - 1)
+			c(*args)
+	except KeyError:
+		show('unknown command: "/%s"' % cmd)
+		return (cmd, args)
+	except TypeError:
+		show("argument error")
+	return True
 
 xmpp = None
 if __name__ == "__main__":
@@ -673,6 +713,467 @@ if __name__ == "__main__":
 		except Exception as e:
 			show("exception: %s" % e)
 
+	def send(msg):
+		if mode == STEALTH:
+			xmpp.muc_send(msg, stealth=True)
+		else:
+			xmpp.muc_send(msg)
+
+	@help(synopsis="help [command|topic]",
+		description="Shows help texts.",
+		args={	"command": "a command you want to know something about",
+			"topic":   "a help topic"})
+	def _help(topic=None):
+		if topic is None:
+			print_help()
+		else:
+			show_help(topic)
+
+	@help(synopsis="encrypt", description="Switch to encrypted (gold) "
+			"mode. Everyone will see, that there was a message, but"
+			" only users with the key can read them",
+			see=["/plain", "/stealth", "/status", "modes"])
+	def _encrypt():
+		global mode
+		if xmpp.key is None:
+			show("no encryption key set")
+		else:
+			xmpp.encrypt = True
+			mode = GOLD
+
+	@help(synopsis="plain", description="Switch to plaintext mode. This is "
+			"the mode, every XMPP client supports.",
+			see=["/encrypt", "/stealth", "/status", "modes"])
+	def _plain():
+		global mode
+		xmpp.encrypt = False
+		mode = PLAIN
+
+	@help(synopsis="stealth", description="Switch to stealth mode. Messages"
+			" are sent encrypted and regular XMPP clients will not "
+			"see the message at all",
+			see=["/encrypt", "/plain", "/status", "modes"])
+	def _stealth():
+		global mode
+		if xmpp.key is None:
+			show("no encryption key set")
+		else:
+			mode = STEALTH
+
+	@help(synopsis="/status", description="Show the current status.",
+			see=["/encrypt", "/plain", "/stealth", "modes"])
+	def _status():
+		show("key %s, mode is %s" % ("available" if xmpp.key is not None
+			else "not available", "plaintext" if mode == PLAIN
+			else "gold" if mode == GOLD
+			else "stealth" if mode == STEALTH
+			else "strange"))
+
+	@help(synopsis="/msg nick|jid message", description="Send a private "
+			"message to \"nick\" or \"jid\".",
+			args={	"nick":	"the nick of a user in the current "
+					"room",
+				"jid":	"the jid of a user, if it is either "
+					"not in the current room, or if you "
+					"cannot spell his name"})
+	def _msg(args):
+		args = parse_args(args, 1)
+		nick, text = None, None
+		try:
+			nick = args[0]
+			text = args[1].strip()
+		except ValueError:
+			show("syntax error")
+		participants = xmpp.get_participants()
+		nicks = [ participants[jid]["nick"]
+				for jid in participants ]
+		if not nick in nicks:
+			if jid_regex.match(nick) is not None:
+				xmpp.msg_send(nick, text, False)
+			else:
+				show("error: no such user ('%s')" % nick)
+		else:
+			xmpp.msg_send(nick, text, True)
+
+	@help(synopsis="/enc text", description="Encrypt text and display the "
+			"result locally. Probably only useful for debugging.",
+			args={	"text": "the text to encrypt" },
+			see=["/dec", "/encr"])
+	def _enc(text):
+		if xmpp.key is None:
+			show("error: no key set")
+		else:
+			try:
+				data = xmpp.encode(text)
+				show(data)
+			except Exception as e:
+				show("exception: %s" % e)
+
+	@help(synopsis="/dec text", description="Decrypt text and display the "
+			"result locally. Probably only useful for debugging.",
+			args={	"text": "the encrypted text you wish to "
+					"decrypt"},
+			see=["/enc", "/encr"])
+	def _dec(text):
+		if xmpp.key is None:
+			show("error: no key set")
+		else:
+			try:
+				data = xmpp.decode(text)
+				show("'%s'" % data)
+			except Exception as e:
+				show("exception: %s" % e)
+
+	@help(synopsis="/encr text", description="Encrypt text in the same way "
+			"as /enc does, but send the result unencrypted over "
+			"XMPP. Probably only useful to annoy someone.",
+			args={"text": "the text you want to encrypt"},
+			see=["/enc", "/dec"])
+	@noshow
+	def _encr(text):
+		if xmpp.key is None:
+			print("error: no key set")
+		else:
+			try:
+				data = xmpp.encode(text)
+				xmpp.muc_send(data, enc=False)
+				print("%s> %s" % (nick, data))
+			except Exception as e:
+				print("exception: %s" % e)
+
+	@help(synopsis="/e text", description="Send encrypted text, exactly in "
+			"the same way as in the \"encrypt\" mode, but without "
+			"switching the mode.",
+			args={"text": "the text you want to send"},
+			see=["/encrypt"])
+	@noshow
+	def _e(text):
+		if xmpp.key is None:
+				show("error: no key set")
+		else:
+			try:
+				xmpp.muc_send(text, enc=True)
+			except Exception as e:
+				show("exception: %s" % e)
+
+	@help(synopsis="/q text", description="Send text quietly (stealth), "
+			"exactly in the same way as in the \"stealth\" mode, "
+			"but without switching the mode.",
+			args={"text": "the text you want to send"},
+			see=["/stealth"])
+	@noshow
+	def _q(text):
+		if xmpp.key is None:
+			print("error: no key set")
+		else:
+			try:
+				xmpp.muc_send(text,
+						stealth=True)
+			except Exception as e:
+				print("exception: %s" % e)
+
+	@help(synopsis="/p text", description="Send plain text, exactly in the "
+			"same way as in the \"plain\" mode, but without "
+			"switching the mode.",
+			args={"text": "the text you want to send"},
+			see=["/plain"])
+	@noshow
+	def _p(text):
+		xmpp.muc_send(text, enc=False)
+
+	@help(synopsis="/es plain$encrypted", description="Send a message whose"
+			" plain section is sent unmodified, but the encrypted "
+			"section is replaced with a [censored] message for all "
+			"normal clients. To escape the separator character "
+			"(\"$\") prefix it with a \"for the cheat, set "
+			"\\$21 = $33\".",
+			args={"plain":	  "the plaintext portion of the "
+					  "message, which will be visible to "
+					  "everybody",
+			      "encrypted":"the encrypted part of the message, "
+					  "which will only be readable for "
+					  "those with the correct key"},
+			see=["/e", "/eq", "/el"])
+	@noshow
+	def _es(text):
+		plain_text = ""
+		cipher_text = ""
+		cipher = False
+		escape = False
+		for c in text:
+			if cipher:
+				cipher_text += c
+			elif escape:
+				escape = False
+				plain_text += c
+			elif c == "\\":
+				escape = True
+			elif c == "$":
+				cipher = True
+			else:
+				plain_text += c
+		plain_msg = "%s %s" % (plain_text.strip(),
+				encrypted_section_info)
+		cipher_msg = "%s%s" % (plain_text, cipher_text)
+		xmpp.muc_send_encrypted(cipher_msg, plain_msg)
+
+	@help(synopsis="/eq plain$encrypted", description="Send a message whose"
+			" plain section is sent unmodified, but the encrypted "
+			"section is completely removed for all normal clients. "
+			"To escape the separator character (\"$\") prefix it "
+			"with a \"\\\", e.g. \"for the cheat, set "
+			"\\$21 = $33\".",
+			args={"plain":	  "the plaintext portion of the "
+					  "message, which will be visible to "
+					  "everybody",
+			      "encrypted":"the encrypted part of the message, "
+					  "which will only be visible to those "
+					  "with the correct key"},
+			see=["/e", "/es", "/el"])
+	@noshow
+	def _eq(text):
+		plain_text = ""
+		cipher_text = ""
+		cipher = False
+		escape = False
+		for c in text:
+			if cipher:
+				cipher_text += c
+			elif escape:
+				escape = False
+				plain_text += c
+			elif c == "\\":
+				escape = True
+			elif c == "$":
+				cipher = True
+			else:
+				plain_text += c
+		plain_msg = plain_text.strip()
+		cipher_msg = "%s%s" % (plain_text, cipher_text)
+		xmpp.muc_send_encrypted(cipher_msg, plain_msg)
+
+	@help(synopsis="/el text", description="send a message where everything"
+			" starting at the first link is [encrypted]. This is "
+			"the same as /es, but you do not have to insert the "
+			"\"$\" manually.",
+			args={"text": "the text with a link at the end"},
+			see=["/e", "/es", "/eq"])
+	@noshow
+	def _el(text):
+		match = url_regex.search(text)
+		if match is not None:
+			msg = text[:match.start()]
+			url = text[match.start():]
+			plain_msg = "%s %s" % (msg.strip(),
+					encrypted_link_info)
+			cipher_msg = "%s%s" % (msg, url)
+			xmpp.muc_send_encrypted(cipher_msg,
+					plain_msg)
+		else:
+			xmpp.muc_send(msg)
+
+	@help(synopsis="/say text", description="Send text literally. This "
+			"allows to start a message with a \"/\".",
+			args={"text":"the text, wich should be sent unmodified"})
+	@noshow
+	def _say(text):
+		send(text)
+
+	@help(synopsis="/bell [on|off]", description="Sets or shows the usage "
+			"of the terminal's bell. If enabled, the bell will ring"
+			" if a message is received. Without an argument, this "
+			"command shows the current setting.",
+			args={	"on":	"enable the bell",
+				"off":	"disable the bell"})
+	def _bell(args=None):
+		global enable_bell
+		if args is None:
+			show("bell is %s" % ("enabled" if enable_bell
+				else "disabled"))
+		else:
+			if args == "on":
+				enable_bell = True
+				show("bell is now enabled")
+			elif args == "off":
+				enable_bell = False
+				show("bell is now disabled")
+			else:
+				show("syntax error")
+
+	@help(synopsis="/ls [detail]", description="List all users in the room",
+			args={"detail": "if you want to see the JIDs"})
+	def _ls(args=None):
+		if args is None:
+			participants = xmpp.get_participants()
+			nicks = sorted([ participants[jid]["nick"]
+					for jid in participants ])
+			show("currently %d participants: %s" % (len(nicks),
+					", ".join(nicks)))
+		elif args == "detail":
+			participants = xmpp.get_participants()
+			nicks = sorted([ "%s (%s)" %
+					(participants[jid]["nick"], jid)
+					for jid in participants ])
+			show("currently %d participants: %s" %
+					(len(nicks), ", ".join(nicks)))
+		else:
+			show("syntax error")
+
+	@help(synopsis="/save", description="Saves the configuration. Only the "
+			"default mode, the bell setting, the macros and the "
+			"RegExes are saved.")
+	def _save():
+		save_config()
+
+	@help(synopsis="/me text", description="send a message starting with "
+			"\"/me\". This uses the current mode for transmission. "
+			"You know, why this might be useful...",
+			args={"text": "the text you want to say"})
+	@noshow
+	def _me(line):
+		msg = "/me %s" % line
+		send(msg)
+
+	@help(synopsis="help text", description="Print the argument to the "
+			"console")
+	@noshow
+	def _echo(line):
+		show(line)
+
+	running = True
+	@help(synopsis="quit", description="Quit the client.")
+	def _quit():
+		global running
+		running = False
+
+	@help(synopsis="/rot n text", description="Use caesar cipher to encrypt"
+			" text. This can be used to annoy other participants.",
+			args={	"n":	"the offset",
+				"text":	"the text you want to encrypt"},
+			see=["/drot", "/crot"])
+	def _rot(n, text):
+		try:
+			n = int(n)
+			send(rot.rot(text, n))
+		except:
+			show("not a number!")
+
+	@help(synopsis="/rotx [p|e|q] n text", description="Use caesar cipher "
+			"to encrypt text. This can be used to annoy other "
+			"participants. In contrast to /rot, this command sends "
+			"the message with any method, ignoring the current "
+			"mode",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"n":	"the offset",
+				"text":	"the text you want to encrypt"},
+			see=["/rot", "/drot", "/crot"])
+	def _rotx(m, n, text):
+		try:
+			n = int(n)
+			text = rot.rot(text, n)
+			if m == "p":
+				xmpp.muc_send(text, enc=False)
+			elif m == "e":
+				if xmpp.key is None:
+					show("error: no key set")
+				else:
+					try:
+						xmpp.muc_send(text, enc=True)
+					except Exception as e:
+						show("exception: %s" % e)
+			elif m == "q":
+				if xmpp.key is None:
+					print("error: no key set")
+				else:
+					try:
+						xmpp.muc_send(text,
+								stealth=True)
+					except Exception as e:
+						print("exception: %s" % e)
+			else:
+				show("invalid argument: \"%s\"" % m)
+		except:
+			show("not a number!")
+
+	@help(synopsis="/drot n text", description="Decrypt a caesar cipher "
+			"using a given \"n\". If you do not know the \"n\", you"
+			" can try your luck with /crot.",
+			args={	"n":	"the offset",
+				"text":	"the text you want to decrypt"},
+			see=["/rot", "/crot"])
+	def _drot(n, text):
+		try:
+			n = int(n)
+			show(rot.rot(text, 26 - n))
+		except:
+			show("not a number!")
+
+	@help(synopsis="/crot lang text", description="Try to crack a caesar "
+			"cipher text. If a dictionary is installed, it will "
+			"use it to detect, if the decoded text contains at "
+			"least one valid word in that language.",
+			args={	"lang":	"the language you think this text is "
+					"in",
+				"text":	"the encrypted text you want to "
+					"decode"},
+			see=["/rot", "/drot"])
+	def _crot(lang, text):
+		try:
+			result = rot.crackx(text, lang)
+			show("rot(%d): '%s'" % (result.n, result.text))
+		except Exception as e:
+			show("exception: %s" % str(e))
+
+	@help(synopsis="/cnrot n lang text", description="Try to crack a caesar"
+			" cipher text and show the n-th best result.",
+			args={	"n":	"you want to see this result",
+				"lang":	"the language you think this text is "
+					"in",
+				"text":	"the encrypted text you want to "
+					"decode"},
+			see=["/rot", "/drot"])
+	def _cnrot(n, lang, text):
+		try:
+			n = int(n)
+		except:
+			show("not a number!")
+			return
+		try:
+			result = rot.crack(text, lang)[n]
+			show("rot(%d): '%s'" % (result.n, result.text))
+		except Exception as e:
+			show("exception: %s" % str(e))
+
+	add_command("help", _help)
+	add_command("encrypt", _encrypt)
+	add_command("plain", _plain)
+	add_command("stealth", _stealth)
+	add_command("status", _status)
+	add_command("msg", _msg)
+	add_command("enc", _enc)
+	add_command("dec", _dec)
+	add_command("e", _e)
+	add_command("q", _q)
+	add_command("p", _p)
+	add_command("encr", _encr)
+	add_command("es", _es)
+	add_command("eq", _eq)
+	add_command("el", _el)
+	add_command("say", _say)
+	add_command("bell", _bell)
+	add_command("ls", _ls)
+	add_command("save", _save)
+	add_command("me", _me)
+	add_command("quit", _quit)
+	add_command("echo", _echo)
+	add_command("rot", _rot)
+	add_command("rotx", _rotx)
+	add_command("drot", _drot)
+	add_command("crot", _crot)
+	add_command("cnrot", _cnrot)
+
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
 	xmpp.add_online_listener(muc_online)
@@ -692,7 +1193,7 @@ if __name__ == "__main__":
 	rl.set_delete_input()
 
 	try:
-		while True:
+		while running:
 			if not no_colors:
 				sys.stdout.write("\033%s" % INPUT_COLOR)
 				sys.stdout.flush()
@@ -824,221 +1325,11 @@ if __name__ == "__main__":
 						definitions[definition])
 			msg = rp.run(regex_default_program, msg)
 
-			if msg == "/help":
-				show_input(msg)
-				print_help()
-			elif msg.startswith("/help "):
-				show_input(msg)
-				text = msg[6:].strip()
-				show_help(text)
-			elif msg == "/quit":
-				show_input(msg)
-				break
-			elif msg.startswith("/echo "):
-				text = msg[6:].strip()
-				show(text)
-			elif msg == "/encrypt" or msg == "/gold":
-				show_input(msg)
-				if xmpp.key is None:
-					show("no encryption key set")
-				else:
-					xmpp.encrypt = True
-					mode = GOLD
-			elif msg == "/plain":
-				show_input(msg)
-				xmpp.encrypt = False
-				mode = PLAIN
-			elif msg == "/stealth":
-				show_input(msg)
-				if xmpp.key is None:
-					show("no encryption key set")
-				else:
-					mode = STEALTH
-			elif msg == "/status":
-				show_input(msg)
-				show("key %s, mode is %s" % ("available" if
-						xmpp.key is not None else
-						"not available", "plaintext" if
-						mode == PLAIN else "gold" if
-						mode == GOLD else "stealth" if
-						mode == STEALTH else "strange"))
-			elif msg.startswith("/msg "):
-				show_input(msg)
-				nick, text = None, None
-				try:
-					nick = msg[5:msg[5:].index(" ") + 5] \
-							.strip()
-					text = msg[5 + len(nick) + 1:].strip()
-				except ValueError as e:
-					show("syntax error")
-				participants = xmpp.get_participants()
-				nicks = [ participants[jid]["nick"]
-						for jid in participants ]
-				if not nick in nicks:
-					if jid_regex.match(nick) is not None:
-						xmpp.msg_send(nick, text, False)
-					else:
-						show("error: no such user")
-				else:
-					xmpp.msg_send(nick, text, True)
-			elif msg.startswith("/enc "):
-				show_input(msg)
-				text = msg[5:].strip()
-				if xmpp.key is None:
-					show("error: no key set")
-				else:
-					try:
-						data = xmpp.encode(text)
-						show(data)
-					except Exception as e:
-						show("exception: %s" % e)
-			elif msg.startswith("/dec "):
-				show_input(msg)
-				text = msg[5:].strip()
-				if xmpp.key is None:
-					show("error: no key set")
-				else:
-					try:
-						data = xmpp.decode(text)
-						show("'%s'" % data)
-					except Exception as e:
-						show("exception: %s" % e)
-			elif msg.startswith("/e "):
-				text = msg[3:].strip()
-				if xmpp.key is None:
-					show("error: no key set")
-				else:
-					try:
-						xmpp.muc_send(text, enc=True)
-					except Exception as e:
-						show("exception: %s" % e)
-			elif msg.startswith("/q "):
-				text = msg[3:].strip()
-				if xmpp.key is None:
-					print("error: no key set")
-				else:
-					try:
-						xmpp.muc_send(text,
-								stealth=True)
-					except Exception as e:
-						print("exception: %s" % e)
-			elif msg.startswith("/p "):
-				text = msg[3:].strip()
-				xmpp.muc_send(text, enc=False)
-			elif msg.startswith("/encr "):
-				text = msg[6:].strip()
-				if xmpp.key is None:
-					print("error: no key set")
-				else:
-					try:
-						data = xmpp.encode(text)
-						xmpp.muc_send(data, enc=False)
-						print("%s> %s" % (nick, data))
-					except Exception as e:
-						print("exception: %s" % e)
-			elif msg.startswith("/es "):
-				text = msg[4:].strip()
-				plain_text = ""
-				cipher_text = ""
-				cipher = False
-				escape = False
-				for c in text:
-					if cipher:
-						cipher_text += c
-					elif escape:
-						escape = False
-						plain_text += c
-					elif c == "\\":
-						escape = True
-					elif c == "$":
-						cipher = True
-					else:
-						plain_text += c
-				plain_msg = "%s %s" % (plain_text.strip(),
-						encrypted_section_info)
-				cipher_msg = "%s%s" % (plain_text, cipher_text)
-				xmpp.muc_send_encrypted(cipher_msg, plain_msg)
-			elif msg.startswith("/eq "):
-				text = msg[4:].strip()
-				plain_text = ""
-				cipher_text = ""
-				cipher = False
-				escape = False
-				for c in text:
-					if cipher:
-						cipher_text += c
-					elif escape:
-						escape = False
-						plain_text += c
-					elif c == "\\":
-						escape = True
-					elif c == "$":
-						cipher = True
-					else:
-						plain_text += c
-				plain_msg = plain_text.strip()
-				cipher_msg = "%s%s" % (plain_text, cipher_text)
-				xmpp.muc_send_encrypted(cipher_msg, plain_msg)
-			elif msg.startswith("/el "):
-				text = msg[4:].strip()
-				match = url_regex.search(text)
-				if match is not None:
-					msg = text[:match.start()]
-					url = text[match.start():]
-					plain_msg = "%s %s" % (msg.strip(),
-							encrypted_link_info)
-					cipher_msg = "%s%s" % (msg, url)
-					xmpp.muc_send_encrypted(cipher_msg,
-							plain_msg)
-				else:
-					xmpp.muc_send(msg)
-			elif msg.startswith("/say "):
-				text = msg[5:].strip()
-				if mode == STEALTH:
-					xmpp.muc_send(text, stealth=True)
-				else:
-					xmpp.muc_send(text)
-			elif msg == "/bell":
-				show_input(msg)
-				show("bell is %s" % ("enabled" if enable_bell
-					else "disabled"))
-			elif msg.startswith("/bell "):
-				show_input(msg)
-				text = msg[6:].strip()
-				if text == "on":
-					enable_bell = True
-					show("bell is now enabled")
-				elif text == "off":
-					enable_bell = False
-					show("bell is now disabled")
-				else:
-					show("syntax error")
-			elif msg == "/ls":
-				show_input(msg)
-				participants = xmpp.get_participants()
-				nicks = sorted([ participants[jid]["nick"]
-						for jid in participants ])
-				show("currently %d participants: %s" %
-						(len(nicks), ", ".join(nicks)))
-			elif msg == "/ls detail":
-				show_input(msg)
-				participants = xmpp.get_participants()
-				nicks = sorted([ "%s (%s)" %
-						(participants[jid]["nick"], jid)
-						for jid in participants ])
-				show("currently %d participants: %s" %
-						(len(nicks), ", ".join(nicks)))
-			elif msg == "/save":
-				show_input(msg)
-				save_config()
-			elif msg[0] == "/" and not msg.startswith("/me "):
-				show_input(msg)
-				show("unknown command")
+			result = execute_command(msg)
+			if result is not False:
+				continue
 			else:
-				if mode == STEALTH:
-					xmpp.muc_send(msg, stealth=True)
-				else:
-					xmpp.muc_send(msg)
+				send(msg)
 
 	except KeyboardInterrupt: pass
 	except EOFError: pass
