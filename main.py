@@ -487,6 +487,12 @@ if __name__ == "__main__":
 	encrypted_section_info = config.get("messages", "encrypted_section",
 			fallback=encrypted_section_info)
 
+	MENTION_COLOR = config.get("colors", "mention", fallback=MENTION_COLOR)
+	INPUT_COLOR = config.get("colors", "input", fallback=INPUT_COLOR)
+	STEALTH_COLOR = config.get("colors", "stealth", fallback=STEALTH_COLOR)
+	ENCRYPTED_COLOR = config.get("colors", "encrypted",
+			fallback=ENCRYPTED_COLOR)
+
 	mode = GOLD if key is not None else PLAIN
 
 	if not rot.is_supported(caesar_lang):
