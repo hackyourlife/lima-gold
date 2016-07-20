@@ -1,5 +1,5 @@
 pkgname=("lima-gold")
-pkgver=1.1.7
+pkgver=1.1.8
 pkgrel=1
 pkgdesc="A terminal based Jabber MUC client with support for encrypted and invisible messages"
 arch=("any")
@@ -13,7 +13,7 @@ md5sums=("225d06e97466329015814a9ee1c66db6"
          "34d41be6e5bd7128a80163f869372b12"
          "5e1c0e2735ee8750ee2f29e1a4c3eefa"
          "34553800636e433a5a95aa69e64734be"
-         "5d8924f45342614b8dcb418f0915cfd6"
+         "9335387c75f65281e7846f90053376fe"
          "be06c215cf34d5af64287366bcbc48de")
 
 package() {

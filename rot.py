@@ -34,8 +34,8 @@ def default_frequencies(lang):
 dicts = {}
 def _read(path):
 	with open(path) as f:
-		return [ l.strip().lower() for l in f.readlines() \
-				if len(l.strip()) > 0 ]
+		return { l.strip().lower() for l in f.readlines() \
+				if len(l.strip()) > 0 }
 
 def _get_dict(lang):
 	if lang == "de":
