@@ -1,5 +1,5 @@
 pkgname=("lima-gold")
-pkgver=1.1.3
+pkgver=1.1.4
 pkgrel=1
 pkgdesc="A terminal based Jabber MUC client with support for encrypted and invisible messages"
 arch=("any")
@@ -9,7 +9,7 @@ depends=("python" "python-sleekxmpp" "python-crypto" "words")
 source=(client.py encryptim.py main.py api.py rl.py rp.py rot.py setup.py)
 md5sums=("225d06e97466329015814a9ee1c66db6"
          "851a9f27429ca1dd6792cde39b061d2d"
-         "40b77a0b541a5db9ac257018cba8881d"
+         "246c9ddbed29b1678c2f25358ae6db3e"
          "34d41be6e5bd7128a80163f869372b12"
          "5e1c0e2735ee8750ee2f29e1a4c3eefa"
          "34553800636e433a5a95aa69e64734be"

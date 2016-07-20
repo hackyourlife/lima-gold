@@ -556,13 +556,15 @@ if __name__ == "__main__":
 
 		return nick if not rpad else nick.rjust(longest, ' ')
 
-	bits_regex = re.compile("^[01]+$")
-	bits2s = lambda b: "".join(chr(int("".join(x), 2)) \
+	bits_regex = re.compile(r"^[01\s]+$")
+	printable = lambda x: ord(".") if x < 32 else x
+	bits2s = lambda b: "".join(chr(printable(int("".join(x), 2))) \
 			for x in zip(*[iter(b)]*8))
 
 	def decode_msg(msg):
-		if bits_regex.match(msg) is not None and len(msg) % 8 == 0:
-			result = bits2s(msg)
+		stripped = msg.replace(" ", "").strip()
+		if bits_regex.match(msg) is not None and len(stripped) % 8 == 0:
+			result = bits2s(stripped)
 			show("binary: %s" % result)
 			return
 
