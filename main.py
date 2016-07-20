@@ -58,6 +58,7 @@ no_colors = False
 show_timestamps = True
 decode_caesar = False
 caesar_lang = None
+msg_decode = False
 
 PLAIN = '>'
 STEALTH = '$'
@@ -374,6 +375,8 @@ if __name__ == "__main__":
 	parser.add_option("-n", "--nick", dest="nick", help="Nick")
 	parser.add_option("-k", "--key", dest="key", help="Encryption key")
 	parser.add_option("-l", "--log", dest="log", help="Log file path")
+	parser.add_option("-D", "--no-decode", dest="msgdecode", default=True,
+			action="store_false", help="Disable message decoding")
 	parser.add_option("-b", "--bell", dest="bell",
 			action="store_true", help="Enable bell")
 	parser.add_option("-B", "--no-bell", dest="bell",
@@ -456,6 +459,8 @@ if __name__ == "__main__":
 	if options.section is not None:
 		config.set("messages", "encrypted_section", options.section)
 
+	msg_decode = options.msgdecode
+
 	jid = config.get("xmpp", "jid")
 	try:
 		password = config.get("xmpp", "password")
@@ -528,10 +533,19 @@ if __name__ == "__main__":
 	logfile = open(logfile_name, "a")
 
 	def log_msg(msgtype, msg, nick):
-		nick = get_formatted_nick(nick);
 		t = time()
 		lines = msg.count("\n")
 		line = "%sR %s %03d <%s> %s" % (msgtype, t, lines, nick, msg)
+		try:
+			logfile.write("%s\n" % line)
+			logfile.flush()
+		except Exception as e:
+			show("exception while writing log: %s" % e)
+
+	def log_privmsg(msg, jid):
+		t = time()
+		lines = msg.count("\n")
+		line = "PR %s %03d <%s> %s" % (t, lines, jid, msg)
 		try:
 			logfile.write("%s\n" % line)
 			logfile.flush()
@@ -566,6 +580,9 @@ if __name__ == "__main__":
 			for x in zip(*[iter(b)]*2))
 
 	def decode_msg(msg):
+		if not msg_decode:
+			return
+
 		stripped = strip_regex.sub("", msg)
 		if bits_regex.match(stripped) is not None \
 				and len(stripped) % 8 == 0:
@@ -677,6 +694,7 @@ if __name__ == "__main__":
 		timestamp = "%s " % localtime() if show_timestamps else ""
 		show_raw("\033%s%s<PRIV#%s> %s\033[0m" % (MENTION_COLOR,
 				timestamp, escape_vt(jid), escape_vt(msg)))
+		log_privmsg(msg, jid)
 
 	def muc_online(jid, nick, role, affiliation, localjid, info):
 		global longest
