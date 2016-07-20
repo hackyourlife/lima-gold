@@ -557,16 +557,24 @@ if __name__ == "__main__":
 		return nick if not rpad else nick.rjust(longest, ' ')
 
 	bits_regex = re.compile(r"^[01\s]+$")
+	hex_regex = re.compile(r"^[0-9a-fA-F]+$")
+	strip_regex = re.compile(r"[:\s-]")
 	printable = lambda x: ord(".") if x < 32 else x
 	bits2s = lambda b: "".join(chr(printable(int("".join(x), 2))) \
 			for x in zip(*[iter(b)]*8))
+	hex2s = lambda b: "".join(chr(printable(int("".join(x), 16))) \
+			for x in zip(*[iter(b)]*2))
 
 	def decode_msg(msg):
-		stripped = msg.replace(" ", "").strip()
-		if bits_regex.match(msg) is not None and len(stripped) % 8 == 0:
-			result = bits2s(stripped)
-			show("binary: %s" % result)
-			return
+		stripped = strip_regex.sub("", msg)
+		if bits_regex.match(stripped) is not None \
+				and len(stripped) % 8 == 0:
+			msg = bits2s(stripped)
+			show("binary: %s" % msg)
+		elif hex_regex.match(stripped) is not None \
+				and len(stripped) % 2 == 0:
+			msg = hex2s(stripped)
+			show("hex: %s" % msg)
 
 		if decode_caesar:
 			match = url_regex.search(msg)
@@ -757,6 +765,30 @@ if __name__ == "__main__":
 			xmpp.muc_send(msg, stealth=True)
 		else:
 			xmpp.muc_send(msg)
+
+	def send_mode(m, text):
+		if m == "p":
+			xmpp.muc_send(text, enc=False)
+		elif m == "e":
+			if xmpp.key is None:
+				show("error: no key set")
+			else:
+				try:
+					xmpp.muc_send(text, enc=True)
+				except Exception as e:
+					show("exception: %s" % e)
+		elif m == "q":
+			if xmpp.key is None:
+				print("error: no key set")
+			else:
+				try:
+					xmpp.muc_send(text,
+							stealth=True)
+				except Exception as e:
+					show("exception: %s" % e)
+		else:
+			show("invalid argument: \"%s\"" % m)
+		pass
 
 	@help(synopsis="help [command|topic]",
 		description="Shows help texts.",
@@ -1117,27 +1149,7 @@ if __name__ == "__main__":
 			else:
 				n = int(n)
 			text = rot.rot(text, n)
-			if m == "p":
-				xmpp.muc_send(text, enc=False)
-			elif m == "e":
-				if xmpp.key is None:
-					show("error: no key set")
-				else:
-					try:
-						xmpp.muc_send(text, enc=True)
-					except Exception as e:
-						show("exception: %s" % e)
-			elif m == "q":
-				if xmpp.key is None:
-					print("error: no key set")
-				else:
-					try:
-						xmpp.muc_send(text,
-								stealth=True)
-					except Exception as e:
-						print("exception: %s" % e)
-			else:
-				show("invalid argument: \"%s\"" % m)
+			send_mode(m, text)
 		except:
 			show("not a number!")
 
@@ -1221,13 +1233,11 @@ if __name__ == "__main__":
 			args={"text": "the text you want to encode"},
 			see=["/binx"])
 	def _bin(msg):
-		tob = lambda s: "".join([ str(bin(ord(b))[2:]).zfill(8) \
-				for b in s ])
-		text = tob(msg)
+		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ])
 		send(text)
 
-	@help(synopsis="/binx [p|e|q] text", description="Encodes the text into "
-			"a bitstring. This can be used to annoy other "
+	@help(synopsis="/binx [p|e|q] text", description="Encodes the text into"
+			" a bitstring. This can be used to annoy other "
 			"participants.",
 			args={	"p":	"send this message as plaintext",
 				"e":	"send this message in encrypted form",
@@ -1235,31 +1245,53 @@ if __name__ == "__main__":
 				"text":	"the text you want to encrypt"},
 			see=["/bin"])
 	def _binx(m, msg):
-		tob = lambda s: "".join([ str(bin(ord(b))[2:]).zfill(8) \
-				for b in s ])
-		text = tob(msg)
-		if m == "p":
-			xmpp.muc_send(text, enc=False)
-		elif m == "e":
-			if xmpp.key is None:
-				show("error: no key set")
-			else:
-				try:
-					xmpp.muc_send(text, enc=True)
-				except Exception as e:
-					show("exception: %s" % e)
-		elif m == "q":
-			if xmpp.key is None:
-				print("error: no key set")
-			else:
-				try:
-					xmpp.muc_send(text,
-							stealth=True)
-				except Exception as e:
-					print("exception: %s" % e)
-		else:
-			show("invalid argument: \"%s\"" % m)
-		pass
+		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ])
+		send_mode(m, text)
+
+	@help(synopsis="/hext text", description="Encodes text into a hex "
+			"string. This can be used to annoy other participants.",
+			args={"text": "the text you want to encode"},
+			see=["/hexx"])
+	def _hex(msg):
+		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		send(text)
+
+	@help(synopsis="/hexx [p|e|q] text", description="Encodes the text "
+			"into a hex string. This can be used to annoy other "
+			"participants.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/hex"])
+	def _hexx(m, msg):
+		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		send_mode(m, text)
+
+	@help(synopsis="/rhex text", description="Encodes the text "
+			"with random rot(n) and the result into a hex string. "
+			"This can be used to annoy other participants.",
+			args={"text": "the text you want to encrypt"},
+			see=["/rhexx", "/hexx", "/rotx"])
+	def _rhex(msg):
+		n = randint(1, 25)
+		msg = rot.rot(msg, n)
+		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		send(text)
+
+	@help(synopsis="/rhexx [p|e|q] text", description="Encodes the text "
+			"with random rot(n) and the result into a hex string. "
+			"This can be used to annoy other participants.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/rhex", "/hexx", "/rotx"])
+	def _rhexx(m, msg):
+		n = randint(1, 25)
+		msg = rot.rot(msg, n)
+		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		send_mode(m, text)
 
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
@@ -1291,6 +1323,10 @@ if __name__ == "__main__":
 	add_command("carot", _carot)
 	add_command("bin", _bin)
 	add_command("binx", _binx)
+	add_command("hex", _hex)
+	add_command("hexx", _hexx)
+	add_command("rhex", _rhex)
+	add_command("rhexx", _rhexx)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
