@@ -744,6 +744,8 @@ if __name__ == "__main__":
 					"caesar_lang": str(caesar_lang) }
 		}
 		for section in newcfg:
+			if not cfg.has_section(section):
+				cfg.add_section(section)
 			for option in newcfg[section]:
 				cfg.set(section, option,
 						newcfg[section][option])
