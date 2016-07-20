@@ -1214,14 +1214,25 @@ if __name__ == "__main__":
 			else:
 				show("syntax error")
 
-	@help(synopsis="/bin [p|e|q] text", description="Encodes the text into "
+	@help(synopsis="/bin text", description="Encodes text into a bitstring."
+			" This can be used to annoy other participants.",
+			args={"text": "the text you want to encode"},
+			see=["/binx"])
+	def _bin(msg):
+		tob = lambda s: "".join([ str(bin(ord(b))[2:]).zfill(8) \
+				for b in s ])
+		text = tob(msg)
+		send(text)
+
+	@help(synopsis="/binx [p|e|q] text", description="Encodes the text into "
 			"a bitstring. This can be used to annoy other "
 			"participants.",
 			args={	"p":	"send this message as plaintext",
 				"e":	"send this message in encrypted form",
 				"q":	"send this as a stealth message",
-				"text":	"the text you want to encrypt"})
-	def _bin(m, msg):
+				"text":	"the text you want to encrypt"},
+			see=["/bin"])
+	def _binx(m, msg):
 		tob = lambda s: "".join([ str(bin(ord(b))[2:]).zfill(8) \
 				for b in s ])
 		text = tob(msg)
@@ -1277,6 +1288,7 @@ if __name__ == "__main__":
 	add_command("cnrot", _cnrot)
 	add_command("carot", _carot)
 	add_command("bin", _bin)
+	add_command("binx", _binx)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
