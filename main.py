@@ -556,6 +556,28 @@ if __name__ == "__main__":
 
 		return nick if not rpad else nick.rjust(longest, ' ')
 
+	bits_regex = re.compile("^[01]+$")
+	bits2s = lambda b: "".join(chr(int("".join(x), 2)) \
+			for x in zip(*[iter(b)]*8))
+
+	def decode_msg(msg):
+		if bits_regex.match(msg) is not None and len(msg) % 8 == 0:
+			result = bits2s(msg)
+			show("binary: %s" % result)
+			return
+
+		if decode_caesar:
+			match = url_regex.search(msg)
+			if match is not None:
+				return
+			try:
+				result = rot.crackx(msg, caesar_lang, True)
+				if result.text != msg:
+					show("rot(%d): %s" % (result.n,
+							result.text))
+			except:
+				pass
+
 	def muc_msg(msg, nick, jid, role, affiliation, msgtype, echo):
 		nick = get_formatted_nick(nick);
 		if enable_bell and not echo:
@@ -607,17 +629,7 @@ if __name__ == "__main__":
 						normal_color, escape_vt(msg)))
 			log_msg("M", msg, nick)
 
-		if decode_caesar:
-			match = url_regex.search(msg)
-			if match is not None:
-				return
-			try:
-				result = rot.crackx(msg, caesar_lang, True)
-				if result.text != msg:
-					show("rot(%d): %s" % (result.n,
-							result.text))
-			except:
-				pass
+		decode_msg(msg)
 
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo, body):
 		nick = get_formatted_nick(nick);
@@ -647,17 +659,7 @@ if __name__ == "__main__":
 						msgcolor, escape_vt(msg)))
 			log_msg("M", body, nick)
 
-		if decode_caesar:
-			match = url_regex.search(msg)
-			if match is not None:
-				return
-			try:
-				result = rot.crackx(msg, caesar_lang, True)
-				if result.text != msg:
-					show("rot(%d): %s" % (result.n,
-							result.text))
-			except:
-				pass
+		decode_msg(msg)
 
 	def priv_msg(msg, jid):
 		if enable_bell:
@@ -1088,7 +1090,7 @@ if __name__ == "__main__":
 	def _rot(n, text):
 		try:
 			if n == "r":
-				n = randint(1, 26)
+				n = randint(1, 25)
 			else:
 				n = int(n)
 			send(rot.rot(text, n))
@@ -1109,7 +1111,7 @@ if __name__ == "__main__":
 	def _rotx(m, n, text):
 		try:
 			if n == "r":
-				n = randint(1, 26)
+				n = randint(1, 25)
 			else:
 				n = int(n)
 			text = rot.rot(text, n)
@@ -1212,6 +1214,40 @@ if __name__ == "__main__":
 			else:
 				show("syntax error")
 
+	@help(synopsis="/bin [p|e|q] text", description="Encodes the text into "
+			"a bitstring. This can be used to annoy other "
+			"participants.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"})
+	def _bin(m, msg):
+		tob = lambda s: "".join([ str(bin(ord(b))[2:]).zfill(8) \
+				for b in s ])
+		text = tob(msg)
+		if m == "p":
+			xmpp.muc_send(text, enc=False)
+		elif m == "e":
+			if xmpp.key is None:
+				show("error: no key set")
+			else:
+				try:
+					xmpp.muc_send(text, enc=True)
+				except Exception as e:
+					show("exception: %s" % e)
+		elif m == "q":
+			if xmpp.key is None:
+				print("error: no key set")
+			else:
+				try:
+					xmpp.muc_send(text,
+							stealth=True)
+				except Exception as e:
+					print("exception: %s" % e)
+		else:
+			show("invalid argument: \"%s\"" % m)
+		pass
+
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
 	add_command("plain", _plain)
@@ -1240,6 +1276,7 @@ if __name__ == "__main__":
 	add_command("crot", _crot)
 	add_command("cnrot", _cnrot)
 	add_command("carot", _carot)
+	add_command("bin", _bin)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)

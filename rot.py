@@ -57,15 +57,17 @@ def is_supported(lang):
 		return False
 	try:
 		get_dict(lang)
-	except ValueError:
+	except:
 		return False
 	return True
 
-def frequencies(text):
-	return { l: text.count(l) / len(text) for l in set(text) }
+def frequencies(text, letters):
+	f = { l: text.count(l) for l in set(text) if l in letters }
+	s = sum([ v for (c, v) in f.items() ])
+	return { l: f[l] / s for l in f }
 
 def cost(text, freq):
-	tf = frequencies(text)
+	tf = frequencies(text, freq)
 	t = [ (tf[c] - f) ** 2 for (c, f) in freq.items() if c in tf ]
 	return sum(t) / len(t)
 
