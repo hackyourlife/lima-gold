@@ -2,3 +2,4 @@ xmpp.cfg
 *.swp
 __pycache__
 *.log
+*.pyc

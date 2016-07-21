@@ -642,16 +642,21 @@ if __name__ == "__main__":
 
 		if decode_caesar:
 			match = url_regex.search(msg)
-			if match is not None:
-				return
-			try:
-				result = rot.crackx(msg, caesar_lang, True)
-				if result.text != msg:
-					show("rot(%d): %s" % (result.n,
-							result.text))
-					msg = result.text
-			except:
-				pass
+			if match is None:
+				try:
+					result = rot.crackx(msg, caesar_lang,
+							True)
+					if result.text != msg:
+						show("rot(%d): %s" % (result.n,
+								result.text))
+						msg = result.text
+				except:
+					pass
+
+		# do not speak an url
+		match = url_regex.search(msg)
+		if match is not None and match.start() == 0:
+			return
 
 		if espeak_voice is not None:
 			espeak.say("%s%s: %s" % (msgmode, nick, msg))
