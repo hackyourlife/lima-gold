@@ -13,6 +13,7 @@ import rl
 import rp
 import json
 import rot
+import espeak
 from optparse import OptionParser
 from getpass import getpass
 from random import randint
@@ -59,6 +60,7 @@ show_timestamps = True
 decode_caesar = False
 caesar_lang = None
 msg_decode = False
+espeak_voice = None
 
 PLAIN = '>'
 STEALTH = '$'
@@ -407,6 +409,7 @@ if __name__ == "__main__":
 	parser.add_option("-J", "--no-join-log", dest="joinlog",
 			action="store_false",
 			help="Disable join-time join messages")
+	parser.add_option("-V", "--voice", dest="voice", help="Voice name")
 	(options, args) = parser.parse_args()
 
 
@@ -460,6 +463,24 @@ if __name__ == "__main__":
 		config.set("messages", "encrypted_section", options.section)
 
 	msg_decode = options.msgdecode
+	espeak_voice = options.voice
+
+	if espeak_voice is not None:
+		import struct
+		from pyaudio import PyAudio
+		rate = espeak.initialize(espeak.AUDIO_OUTPUT_SYNCHRONOUS)
+		espeak.set_voice(espeak_voice)
+		pa = PyAudio()
+		snd = pa.open(format=pa.get_format_from_width(2), channels=1,
+				rate=rate, output=True)
+		snd.start_stream()
+		def synth_cb(samples, nsamples, events):
+			result = bytes()
+			for sample in samples[:nsamples]:
+				result += struct.pack("=h", sample)
+			snd.write(result)
+			return 0
+		espeak.set_synth_callback(synth_cb)
 
 	jid = config.get("xmpp", "jid")
 	try:
@@ -585,19 +606,39 @@ if __name__ == "__main__":
 	hex2s = lambda b: "".join(chr(printable(int("".join(x), 16))) \
 			for x in zip(*[iter(b)]*2))
 
-	def decode_msg(msg):
+	def get_mode_name(msgtype):
+		if msgtype == xmpp.STEALTH:
+			return "stealth"
+		elif msgtype == xmpp.ENCRYPTED:
+			return "gold"
+		else:
+			return None
+
+	def decode_msg(msg, nick, msgtype=None):
+		msgmode = "" if msgtype is None or msgtype is xmpp.PLAIN else \
+				"%s: " % get_mode_name(msgtype)
+
 		if not msg_decode:
+			if espeak_voice is not None:
+				espeak.say("%s%s: %s" % (msgmode, nick, msg))
 			return
 
-		stripped = strip_regex.sub("", msg)
-		if bits_regex.match(stripped) is not None \
-				and len(stripped) % 8 == 0:
-			msg = bits2s(stripped)
-			show("binary: %s" % msg)
-		elif hex_regex.match(stripped) is not None \
-				and len(stripped) % 2 == 0:
-			msg = hex2s(stripped)
-			show("hex: %s" % msg)
+		last = msg
+		while True:
+			stripped = strip_regex.sub("", msg)
+			if bits_regex.match(stripped) is not None \
+					and len(stripped) % 8 == 0:
+				msg = bits2s(stripped)
+				show("binary: %s" % msg)
+			elif hex_regex.match(stripped) is not None \
+					and len(stripped) % 2 == 0:
+				msg = hex2s(stripped)
+				show("hex: %s" % msg)
+			else:
+				break
+			if last == msg:
+				break
+			last = msg
 
 		if decode_caesar:
 			match = url_regex.search(msg)
@@ -608,8 +649,12 @@ if __name__ == "__main__":
 				if result.text != msg:
 					show("rot(%d): %s" % (result.n,
 							result.text))
+					msg = result.text
 			except:
 				pass
+
+		if espeak_voice is not None:
+			espeak.say("%s%s: %s" % (msgmode, nick, msg))
 
 	def muc_msg(msg, nick, jid, role, affiliation, msgtype, echo):
 		nick = get_formatted_nick(nick);
@@ -662,7 +707,7 @@ if __name__ == "__main__":
 						normal_color, escape_vt(msg)))
 			log_msg("M", msg, nick)
 
-		decode_msg(msg)
+		decode_msg(msg, nick, msgtype)
 
 	def muc_mention(msg, nick, jid, role, affiliation, msgtype, echo, body):
 		nick = get_formatted_nick(nick);
@@ -692,7 +737,7 @@ if __name__ == "__main__":
 						msgcolor, escape_vt(msg)))
 			log_msg("M", body, nick)
 
-		decode_msg(msg)
+		decode_msg(msg, nick, msgtype)
 
 	def priv_msg(msg, jid):
 		if enable_bell:

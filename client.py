@@ -223,6 +223,8 @@ class Client(sleekxmpp.ClientXMPP):
 	def muc_offline(self, presence):
 		if presence['muc']['nick'] != self.nick:
 			jid = presence['from'].full
+			if not jid in self.participants:
+				return # workaround for strange presence
 			nick = self.participants[jid]['nick']
 			fulljid = self.participants[jid]['jid']
 			del self.participants[jid]
