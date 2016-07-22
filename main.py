@@ -984,7 +984,6 @@ if __name__ == "__main__":
 			try:
 				data = xmpp.encode(text)
 				xmpp.muc_send(data, enc=False)
-				print("%s> %s" % (nick, data))
 			except Exception as e:
 				print("exception: %s" % e)
 
