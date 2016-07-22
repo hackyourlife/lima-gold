@@ -598,6 +598,7 @@ if __name__ == "__main__":
 		return nick if not rpad else nick.rjust(longest, ' ')
 
 	bits_regex = re.compile(r"^[01\s]+$")
+	lulu_regex = re.compile(r"^[lu\s]+$")
 	hex_regex = re.compile(r"^[0-9a-fA-F]+$")
 	strip_regex = re.compile(r"[:\s-]")
 	printable = lambda x: ord(".") if x < 32 else x
@@ -605,6 +606,7 @@ if __name__ == "__main__":
 			for x in zip(*[iter(b)]*8))
 	hex2s = lambda b: "".join(chr(printable(int("".join(x), 16))) \
 			for x in zip(*[iter(b)]*2))
+	lulu2s = lambda b: bits2s(b.replace("l", "1").replace("u", "0"))
 
 	def get_mode_name(msgtype):
 		if msgtype == xmpp.STEALTH:
@@ -630,6 +632,10 @@ if __name__ == "__main__":
 					and len(stripped) % 8 == 0:
 				msg = bits2s(stripped)
 				show("binary: %s" % msg)
+			elif lulu_regex.match(stripped) is not None \
+					and len(stripped) % 8 == 0:
+				msg = lulu2s(stripped)
+				show("lulu: %s" % msg)
 			elif hex_regex.match(stripped) is not None \
 					and len(stripped) % 2 == 0:
 				msg = hex2s(stripped)
@@ -1368,6 +1374,31 @@ if __name__ == "__main__":
 		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
 		send_mode(m, text)
 
+	@help(synopsis="/lulu text", description="Encodes text into the "
+			"Lulu-code. This is just a binary bitstring with the "
+			"1 replaced by l and 0 replaced by u. This is mainly "
+			"for enjoying the voice of espeak.",
+			args={"text": "the text you want to encode"},
+			see=["/lulux"])
+	def _lulu(msg):
+		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ]) \
+				.replace("1", "l").replace("0", "u")
+		send(text)
+
+	@help(synopsis="/lulux [p|e|q] text", description="Encodes the text "
+			"into Lulu-code. This is just a binary bitstring with "
+			"the 1 replaced by l and 0 replaced by u. This is "
+			"mainly for enjoying the voice of espeak.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/lulu"])
+	def _lulux(m, msg):
+		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ]) \
+				.replace("1", "l").replace("0", "u")
+		send_mode(m, text)
+
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
 	add_command("plain", _plain)
@@ -1402,6 +1433,8 @@ if __name__ == "__main__":
 	add_command("hexx", _hexx)
 	add_command("rhex", _rhex)
 	add_command("rhexx", _rhexx)
+	add_command("lulu", _lulu)
+	add_command("lulux", _lulux)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
