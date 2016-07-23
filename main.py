@@ -1162,11 +1162,11 @@ if __name__ == "__main__":
 					", ".join(nicks)))
 		elif args == "detail":
 			participants = xmpp.get_participants()
-			nicks = sorted([ "%s (%s)" %
+			nicks = sorted([ "  %s (%s)" %
 					(participants[jid]["nick"], jid)
 					for jid in participants ])
-			show("currently %d participants: %s" %
-					(len(nicks), ", ".join(nicks)))
+			show("currently %d participants:\n%s" %
+					(len(nicks), "\n".join(nicks)))
 		else:
 			show("syntax error")
 
