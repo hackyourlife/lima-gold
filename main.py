@@ -16,7 +16,7 @@ import rot
 import espeak
 from optparse import OptionParser
 from getpass import getpass
-from random import randint
+from random import randint, shuffle
 from client import Client
 from api import noshow, help, get_help
 
@@ -601,12 +601,15 @@ if __name__ == "__main__":
 	lulu_regex = re.compile(r"^[lu\s]+$")
 	hex_regex = re.compile(r"^[0-9a-fA-F]+$")
 	strip_regex = re.compile(r"[:\s-]")
+	is_printable = lambda x: x >= 32
 	printable = lambda x: ord(".") if x < 32 else x
 	bits2s = lambda b: "".join(chr(printable(int("".join(x), 2))) \
 			for x in zip(*[iter(b)]*8))
 	hex2s = lambda b: "".join(chr(printable(int("".join(x), 16))) \
 			for x in zip(*[iter(b)]*2))
 	lulu2s = lambda b: bits2s(b.replace("l", "1").replace("u", "0"))
+	bits2p = lambda b: sum([ 1 for x in zip(*[iter(b)]*8) \
+			if not is_printable(int("".join(x), 2)) ])
 
 	def get_mode_name(msgtype):
 		if msgtype == xmpp.STEALTH:
@@ -632,16 +635,61 @@ if __name__ == "__main__":
 					and len(stripped) % 8 == 0:
 				msg = bits2s(stripped)
 				show("binary: %s" % msg)
-			elif lulu_regex.match(stripped) is not None \
+				stripped = strip_regex.sub("", msg)
+			if lulu_regex.match(stripped) is not None \
 					and len(stripped) % 8 == 0:
 				msg = lulu2s(stripped)
 				show("lulu: %s" % msg)
-			elif hex_regex.match(stripped) is not None \
+				stripped = strip_regex.sub("", msg)
+			if len(set(stripped)) == 2 and len(stripped) % 8 == 0 \
+					and caesar_lang is not None:
+				letters = list(set(stripped))
+				binary1 = stripped.replace(letters[0], "0") \
+						.replace(letters[1], "1")
+				binary2 = stripped.replace(letters[0], "1") \
+						.replace(letters[1], "0")
+				b1 = bits2p(binary1)
+				b2 = bits2p(binary2)
+				candidate1 = bits2s(binary1)
+				candidate2 = bits2s(binary2)
+				freq = rot.default_frequencies(caesar_lang)
+				l1 = sum([ 1 for x in set(candidate1) \
+						if x in freq ])
+				l2 = sum([ 1 for x in set(candidate2) \
+						if x in freq ])
+				c1 = rot.cost(candidate1, freq) if l1 > 0 \
+						else None
+				c2 = rot.cost(candidate2, freq) if l2 > 0 \
+						else None
+				if b1 < b2:
+					c2 = None
+				elif b2 < b1:
+					c1 = None
+				if not (c1 is None and c2 is None):
+					if c1 is None:
+						c1 = c2 + 1
+					elif c2 is None:
+						c2 = c1 + 1
+					msg = candidate1 if c1 < c2 \
+							else candidate2
+					l = "%s%s" % ((letters[0], letters[1]) \
+							if c1 < c2 else
+							(letters[1], letters[0]))
+					show("bin(%s): %s" % (l, msg))
+				stripped = strip_regex.sub("", msg)
+			if hex_regex.match(stripped) is not None \
 					and len(stripped) % 2 == 0:
-				msg = hex2s(stripped)
-				show("hex: %s" % msg)
-			else:
-				break
+				if caesar_lang is not None:
+					tmp = hex2s(stripped)
+					freq = rot.default_frequencies(caesar_lang)
+					l = sum([ 1 for x in set(tmp) \
+							if x in freq ])
+					if l != 0:
+						msg = tmp
+						show("hex: %s" % msg)
+				else:
+					msg = hex2s(stripped)
+					show("hex: %s" % msg)
 			if last == msg:
 				break
 			last = msg
@@ -1399,6 +1447,29 @@ if __name__ == "__main__":
 				.replace("1", "l").replace("0", "u")
 		send_mode(m, text)
 
+	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
+			"into a bitstring, but with a different alphabet. This "
+			"can be used to annoy other participants and is mainly "
+			"for enjoying the voice of espeak.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"01":	"use these two letters for encoding",
+				"text":	"the text you want to encrypt"},
+			see=["/binx"])
+	def _binex(m, letters, msg):
+		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ])
+		letters = letters.strip()
+		if letters == "r":
+			letters = [ chr(i + 97) for i in range(26) ]
+			shuffle(letters)
+			letters = "".join(letters[0:2])
+		if len(letters) != 2:
+			show("syntax error")
+			return
+		text = text.replace("0", letters[0]).replace("1", letters[1])
+		send_mode(m, text)
+
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
 	add_command("plain", _plain)
@@ -1435,6 +1506,7 @@ if __name__ == "__main__":
 	add_command("rhexx", _rhexx)
 	add_command("lulu", _lulu)
 	add_command("lulux", _lulux)
+	add_command("binex", _binex)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
