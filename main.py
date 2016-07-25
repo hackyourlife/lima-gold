@@ -579,6 +579,16 @@ if __name__ == "__main__":
 		except Exception as e:
 			show("exception while writing log: %s" % e)
 
+	def log_privmsg_send(msg, jid):
+		t = time()
+		lines = msg.count("\n")
+		line = "PS %s %03d <%s> %s" % (t, lines, jid, msg)
+		try:
+			logfile.write("%s\n" % line)
+			logfile.flush()
+		except Exception as e:
+			show("exception while writing log: %s" % e)
+
 	def log_status(info):
 		t = time()
 		lines = info.count("\n")
@@ -991,10 +1001,12 @@ if __name__ == "__main__":
 		if not nick in nicks:
 			if jid_regex.match(nick) is not None:
 				xmpp.msg_send(nick, text, False)
+				log_privmsg_send(text, nick)
 			else:
 				show("error: no such user ('%s')" % nick)
 		else:
 			xmpp.msg_send(nick, text, True)
+			log_privmsg_send(text, nick)
 
 	@help(synopsis="/enc text", description="Encrypt text and display the "
 			"result locally. Probably only useful for debugging.",
