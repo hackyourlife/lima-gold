@@ -613,11 +613,12 @@ if __name__ == "__main__":
 	strip_regex = re.compile(r"[:\s-]")
 	is_printable = lambda x: x >= 32
 	printable = lambda x: ord(".") if x < 32 else x
-	bits2s = lambda b: "".join(chr(printable(int("".join(x), 2))) \
-			for x in zip(*[iter(b)]*8))
-	hex2s = lambda b: "".join(chr(printable(int("".join(x), 16))) \
-			for x in zip(*[iter(b)]*2))
-	lulu2s = lambda b: bits2s(b.replace("l", "1").replace("u", "0"))
+	get_bytes = lambda s: bytes([ ord(x) for x in s ])
+	to_utf8 = lambda s: get_bytes(s).decode("utf-8")
+	bits2s = lambda b: to_utf8("".join(chr(printable(int("".join(x), 2))) \
+			for x in zip(*[iter(b)]*8)))
+	hex2s = lambda b: to_utf8("".join(chr(printable(int("".join(x), 16))) \
+			for x in zip(*[iter(b)]*2)))
 	bits2p = lambda b: sum([ 1 for x in zip(*[iter(b)]*8) \
 			if not is_printable(int("".join(x), 2)) ])
 
@@ -643,14 +644,12 @@ if __name__ == "__main__":
 			stripped = strip_regex.sub("", msg)
 			if bits_regex.match(stripped) is not None \
 					and len(stripped) % 8 == 0:
-				msg = bits2s(stripped)
-				show("binary: %s" % msg)
-				stripped = strip_regex.sub("", msg)
-			if lulu_regex.match(stripped) is not None \
-					and len(stripped) % 8 == 0:
-				msg = lulu2s(stripped)
-				show("lulu: %s" % msg)
-				stripped = strip_regex.sub("", msg)
+				try:
+					msg = bits2s(stripped)
+					show("binary: %s" % msg)
+					stripped = strip_regex.sub("", msg)
+				except:
+					pass # decoding error
 			if len(set(stripped)) == 2 and len(stripped) % 8 == 0 \
 					and caesar_lang is not None:
 				letters = list(set(stripped))
@@ -660,8 +659,15 @@ if __name__ == "__main__":
 						.replace(letters[1], "0")
 				b1 = bits2p(binary1)
 				b2 = bits2p(binary2)
-				candidate1 = bits2s(binary1)
-				candidate2 = bits2s(binary2)
+				candidate1, candidate2 = [], []
+				try:
+					candidate1 = bits2s(binary1)
+				except UnicodeDecodeError:
+					pass
+				try:
+					candidate2 = bits2s(binary2)
+				except UnicodeDecodeError:
+					pass
 				freq = rot.default_frequencies(caesar_lang)
 				l1 = sum([ 1 for x in set(candidate1) \
 						if x in freq ])
@@ -671,9 +677,9 @@ if __name__ == "__main__":
 						else None
 				c2 = rot.cost(candidate2, freq) if l2 > 0 \
 						else None
-				if b1 < b2:
+				if b1 < b2 and c1 is not None:
 					c2 = None
-				elif b2 < b1:
+				elif b2 < b1 and c2 is not None:
 					c1 = None
 				if not (c1 is None and c2 is None):
 					if c1 is None:
@@ -1394,7 +1400,8 @@ if __name__ == "__main__":
 			args={"text": "the text you want to encode"},
 			see=["/hexx"])
 	def _hex(msg):
-		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		text = ":".join([ str(hex(b)[2:]).zfill(2) \
+				for b in msg.encode("utf-8") ])
 		send(text)
 
 	@help(synopsis="/hexx [p|e|q] text", description="Encodes the text "
@@ -1406,7 +1413,8 @@ if __name__ == "__main__":
 				"text":	"the text you want to encrypt"},
 			see=["/hex"])
 	def _hexx(m, msg):
-		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		text = ":".join([ str(hex(b)[2:]).zfill(2) \
+				for b in msg.encode("utf-8") ])
 		send_mode(m, text)
 
 	@help(synopsis="/rhex text", description="Encodes the text "
@@ -1417,7 +1425,8 @@ if __name__ == "__main__":
 	def _rhex(msg):
 		n = randint(1, 25)
 		msg = rot.rot(msg, n)
-		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		text = ":".join([ str(hex(b)[2:]).zfill(2) \
+				for b in msg.encode("utf-8") ])
 		send(text)
 
 	@help(synopsis="/rhexx [p|e|q] text", description="Encodes the text "
@@ -1431,7 +1440,8 @@ if __name__ == "__main__":
 	def _rhexx(m, msg):
 		n = randint(1, 25)
 		msg = rot.rot(msg, n)
-		text = ":".join([ str(hex(ord(b))[2:]).zfill(2) for b in msg ])
+		text = ":".join([ str(hex(b)[2:]).zfill(2) \
+				for b in msg.encode("utf-8") ])
 		send_mode(m, text)
 
 	@help(synopsis="/lulu text", description="Encodes text into the "
@@ -1441,8 +1451,9 @@ if __name__ == "__main__":
 			args={"text": "the text you want to encode"},
 			see=["/lulux"])
 	def _lulu(msg):
-		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ]) \
-				.replace("1", "l").replace("0", "u")
+		text = "".join([ str(bin(b)[2:]).zfill(8) \
+				for b in msg.encode("utf-8") ]) \
+				.replace("0", "l").replace("1", "u")
 		send(text)
 
 	@help(synopsis="/lulux [p|e|q] text", description="Encodes the text "
@@ -1455,8 +1466,9 @@ if __name__ == "__main__":
 				"text":	"the text you want to encrypt"},
 			see=["/lulu"])
 	def _lulux(m, msg):
-		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ]) \
-				.replace("1", "l").replace("0", "u")
+		text = "".join([ str(bin(b)[2:]).zfill(8) \
+				for b in msg.encode("utf-8") ]) \
+				.replace("0", "l").replace("1", "u")
 		send_mode(m, text)
 
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
@@ -1470,7 +1482,8 @@ if __name__ == "__main__":
 				"text":	"the text you want to encrypt"},
 			see=["/binx"])
 	def _binex(m, letters, msg):
-		text = "".join([ str(bin(ord(b))[2:]).zfill(8) for b in msg ])
+		text = "".join([ str(bin(b)[2:]).zfill(8) \
+				for b in msg.encode("utf-8") ])
 		letters = letters.strip()
 		if letters == "r":
 			letters = [ chr(i + 97) for i in range(26) ]
