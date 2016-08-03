@@ -653,10 +653,11 @@ if __name__ == "__main__":
 			if len(set(stripped)) == 2 and len(stripped) % 8 == 0 \
 					and caesar_lang is not None:
 				letters = list(set(stripped))
-				binary1 = stripped.replace(letters[0], "0") \
-						.replace(letters[1], "1")
-				binary2 = stripped.replace(letters[0], "1") \
-						.replace(letters[1], "0")
+				lstr = "".join(letters)
+				binary1 = stripped.translate(str \
+						.maketrans("01", lstr))
+				binary2 = stripped.translate(str \
+						.maketrans("10", lstr))
 				b1 = bits2p(binary1)
 				b2 = bits2p(binary2)
 				candidate1, candidate2 = [], []
@@ -696,16 +697,22 @@ if __name__ == "__main__":
 			if hex_regex.match(stripped) is not None \
 					and len(stripped) % 2 == 0:
 				if caesar_lang is not None:
-					tmp = hex2s(stripped)
-					freq = rot.default_frequencies(caesar_lang)
-					l = sum([ 1 for x in set(tmp) \
-							if x in freq ])
-					if l != 0:
-						msg = tmp
-						show("hex: %s" % msg)
+					try:
+						tmp = hex2s(stripped)
+						freq = rot.default_frequencies(caesar_lang)
+						l = sum([ 1 for x in set(tmp) \
+								if x in freq ])
+						if l != 0:
+							msg = tmp
+							show("hex: %s" % msg)
+					except UnicodeDecodeError:
+						pass
 				else:
-					msg = hex2s(stripped)
-					show("hex: %s" % msg)
+					try:
+						msg = hex2s(stripped)
+						show("hex: %s" % msg)
+					except UnicodeDecodeError:
+						pass
 			if last == msg:
 				break
 			last = msg
@@ -993,14 +1000,7 @@ if __name__ == "__main__":
 				"jid":	"the jid of a user, if it is either "
 					"not in the current room, or if you "
 					"cannot spell his name"})
-	def _msg(args):
-		args = parse_args(args, 1)
-		nick, text = None, None
-		try:
-			nick = args[0]
-			text = args[1].strip()
-		except ValueError:
-			show("syntax error")
+	def _msg(nick, text):
 		participants = xmpp.get_participants()
 		nicks = [ participants[jid]["nick"]
 				for jid in participants ]
@@ -1492,7 +1492,7 @@ if __name__ == "__main__":
 		if len(letters) != 2:
 			show("syntax error")
 			return
-		text = text.replace("0", letters[0]).replace("1", letters[1])
+		text = text.translate(str.maketrans("01", letters))
 		send_mode(m, text)
 
 	add_command("help", _help)
