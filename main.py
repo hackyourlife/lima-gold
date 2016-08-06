@@ -13,7 +13,6 @@ import rl
 import rp
 import json
 import rot
-import espeak
 from optparse import OptionParser
 from getpass import getpass
 from random import randint, shuffle
@@ -468,6 +467,7 @@ if __name__ == "__main__":
 	if espeak_voice is not None:
 		import struct
 		from pyaudio import PyAudio
+		import espeak
 		rate = espeak.initialize(espeak.AUDIO_OUTPUT_SYNCHRONOUS)
 		espeak.set_voice(espeak_voice)
 		pa = PyAudio()
