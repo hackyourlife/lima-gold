@@ -1,5 +1,5 @@
 pkgname=("lima-gold")
-pkgver=1.1.16
+pkgver=1.1.17
 pkgrel=1
 pkgdesc="A terminal based Jabber MUC client with support for encrypted and invisible messages"
 arch=("any")
@@ -8,15 +8,15 @@ license=("Custom")
 depends=("python" "python-sleekxmpp" "python-crypto" "words")
 optdepends=("espeak" "python-pyaudio")
 source=(client.py encryptim.py main.py api.py rl.py rp.py rot.py espeak.py setup.py)
-md5sums=("d9e638aceae3e0724deb2691bd6f2847"
-         "851a9f27429ca1dd6792cde39b061d2d"
-         "d7f73c471dbb624b10f452b433c74986"
-         "34d41be6e5bd7128a80163f869372b12"
-         "5e1c0e2735ee8750ee2f29e1a4c3eefa"
-         "34553800636e433a5a95aa69e64734be"
-         "9335387c75f65281e7846f90053376fe"
-         "7a073c923ef9760c52f05a134625fb0f"
-         "be06c215cf34d5af64287366bcbc48de")
+md5sums=('d9e638aceae3e0724deb2691bd6f2847'
+         '851a9f27429ca1dd6792cde39b061d2d'
+         'a4b55f18f1112b3a18fd7240b00572e0'
+         '34d41be6e5bd7128a80163f869372b12'
+         '5e1c0e2735ee8750ee2f29e1a4c3eefa'
+         '34553800636e433a5a95aa69e64734be'
+         '9335387c75f65281e7846f90053376fe'
+         '7a073c923ef9760c52f05a134625fb0f'
+         'be06c215cf34d5af64287366bcbc48de')
 
 package() {
   cd "$srcdir"
