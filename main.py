@@ -655,9 +655,9 @@ if __name__ == "__main__":
 				letters = list(set(stripped))
 				lstr = "".join(letters)
 				binary1 = stripped.translate(str \
-						.maketrans("01", lstr))
+						.maketrans(lstr, "01"))
 				binary2 = stripped.translate(str \
-						.maketrans("10", lstr))
+						.maketrans(lstr, "10"))
 				b1 = bits2p(binary1)
 				b2 = bits2p(binary2)
 				candidate1, candidate2 = [], []
