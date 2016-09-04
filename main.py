@@ -1471,6 +1471,15 @@ if __name__ == "__main__":
 				.replace("0", "l").replace("1", "u")
 		send_mode(m, text)
 
+	@help(synopsis="/1337 text", description="Encodes the text using "
+			"1337-5p34k",
+			args={  "text": "the text you want to encrypt"})
+	def _1337(msg):
+		text = msg.translate(str.maketrans(
+			'ABCDEFGHIJKLMNOPQRSTUVQXYZabcdefghijklmnopqrstuvwxyz',
+			'48(D3FGH1JKLMN0PQR57UVWXYZ48(d3fgh1jklmn0pqr57uvwxyz'))
+		send(text)
+
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
 			"into a bitstring, but with a different alphabet. This "
 			"can be used to annoy other participants and is mainly "
@@ -1532,6 +1541,7 @@ if __name__ == "__main__":
 	add_command("lulu", _lulu)
 	add_command("lulux", _lulux)
 	add_command("binex", _binex)
+	add_command("1337", _1337)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
