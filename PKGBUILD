@@ -10,7 +10,7 @@ optdepends=("espeak" "python-pyaudio")
 source=(client.py encryptim.py main.py api.py rl.py rp.py rot.py espeak.py setup.py)
 md5sums=('d9e638aceae3e0724deb2691bd6f2847'
          '851a9f27429ca1dd6792cde39b061d2d'
-         'd3e833a00bae8bf3932fd3a0195ecb21'
+         '77e94a9b68beba517341cf03528db0ee'
          '34d41be6e5bd7128a80163f869372b12'
          '5e1c0e2735ee8750ee2f29e1a4c3eefa'
          '34553800636e433a5a95aa69e64734be'

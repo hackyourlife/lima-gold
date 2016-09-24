@@ -77,6 +77,35 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 jid_regex = re.compile(r'[a-zA-Z0-9]+@(?:[a-zA-Z0-9]+\.)+[a-zA-Z0-9]+(?:/.*)?')
 
+chars_to_morse = {"A": "·−", "B": "−···", "C": "−·−·", "D": "−··", "E": "·",
+		"F": "··−·", "G": "−−·", "H": "····", "I": "··", "J": "·−−−",
+		"K": "−·−", "L": "·−··", "M": "−−", "N": "−·", "O": "−−−", "P":
+		"·−−·", "Q": "−−·−", "R": "·−·", "S": "···", "T": "−", "U":
+		"··−", "V": "···−", "W": "·−−", "X": "−··−", "Y": "−·−−", "Z":
+		"−−··", "1": "·−−−−", "2": "··−−−", "3": "···−−", "4": "····−",
+		"5": "·····", "6": "−····", "7": "−−···", "8": "−−−··", "9":
+		"−−−−·", "0": "−−−−−", "À": "·−−·−", "Ä": "·−·−", "È": "·−··−",
+		"É": "··−··", "Ö": "−−−·", "Ü": "··−−", "ß": "···−−··", "CH":
+		"−−−−", "Ñ": "−−·−−", ".": "·−·−·−", ",": "−−··−−", ":":
+		"−−−···", ";": "−·−·−·", "?": "··−−··", "-": "−····−", "_":
+		"··−−·−", "(": "−·−−·", ")": "−·−−·−", "'": "·−−−−·", "=":
+		"−···−", "+": "·−·−·", "/": "−··−·", "@": "·−−·−·",
+		"!": "−·−·−−", '"': "·−··−·", "$": "···−··−"}
+morse_to_chars = {"·−": "A", "−···": "B", "−·−·": "C", "−··": "D", "·": "E",
+		"··−·": "F", "−−·": "G", "····": "H", "··": "I", "·−−−": "J",
+		"−·−": "K", "·−··": "L", "−−": "M", "−·": "N", "−−−": "O",
+		"·−−·": "P", "−−·−": "Q", "·−·": "R", "···": "S", "−": "T",
+		"··−": "U", "···−": "V", "·−−": "W", "−··−": "X", "−·−−": "Y",
+		"−−··": "Z", "·−−−−": "1", "··−−−": "2", "···−−": "3", "····−":
+		"4", "·····": "5", "−····": "6", "−−···": "7", "−−−··": "8",
+		"−−−−·": "9", "−−−−−": "0", "·−−·−": "À", "·−·−": "Ä", "·−··−":
+		"È", "··−··": "É", "−−−·": "Ö", "··−−": "Ü", "···−−··": "ß",
+		"−−−−": "CH", "−−·−−": "Ñ", "·−·−·−": ".", "−−··−−": ",",
+		"−−−···": ":", "−·−·−·": ";", "··−−··": "?", "−····−": "-",
+		"··−−·−": "_", "−·−−·": "(", "−·−−·−": ")", "·−−−−·": "'",
+		"−···−": "=", "·−·−·": "+", "−··−·": "/", "·−−·−·": "@",
+		"−·−·−−": "!", "·−··−·": '"', "···−··−": "$"}
+
 longest = 0
 rpad = False
 color_sequences = re.compile('\033\\[[^m]+?m')
@@ -610,6 +639,7 @@ if __name__ == "__main__":
 	bits_regex = re.compile(r"^[01\s]+$")
 	lulu_regex = re.compile(r"^[lu\s]+$")
 	hex_regex = re.compile(r"^[0-9a-fA-F]+$")
+	morse_regex = re.compile(r"^[ −·\.-]+$")
 	strip_regex = re.compile(r"[:\s-]")
 	is_printable = lambda x: x >= 32
 	printable = lambda x: ord(".") if x < 32 else x
@@ -713,6 +743,17 @@ if __name__ == "__main__":
 						show("hex: %s" % msg)
 					except UnicodeDecodeError:
 						pass
+			if morse_regex.match(msg) is not None:
+				tmp = ""
+				for letter in msg.replace(".","·").replace("-","−").split(" "):
+					if len(letter) == 0:
+						tmp = tmp + " "
+					elif letter in morse_to_chars:
+						tmp = tmp + \
+							morse_to_chars[letter]
+				if len(msg.split(" ")) == len(tmp):
+					msg = tmp.lower()
+					show("morse: %s" % msg)
 			if last == msg:
 				break
 			last = msg
@@ -1480,6 +1521,19 @@ if __name__ == "__main__":
 			'48(D3FGH1JKLMN0PQR57UVWXYZ48(d3fgh1jklmn0pqr57uvwxyz'))
 		send(text)
 
+	@help(synopsis="/morse text", description="Encodes the text to morse",
+			args={  "text": "the text you want to encrypt" })
+	def _morse(msg):
+		text = ""
+		for letter in msg.upper():
+			if letter in chars_to_morse:
+				text = text + chars_to_morse[letter]
+			elif not letter == " ":
+				text = text + chars_to_morse["?"]
+			text = text + " "
+		send(text)
+
+
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
 			"into a bitstring, but with a different alphabet. This "
 			"can be used to annoy other participants and is mainly "
@@ -1542,6 +1596,7 @@ if __name__ == "__main__":
 	add_command("lulux", _lulux)
 	add_command("binex", _binex)
 	add_command("1337", _1337)
+	add_command("morse", _morse)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
