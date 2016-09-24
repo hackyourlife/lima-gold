@@ -1,5 +1,5 @@
 pkgname=("lima-gold")
-pkgver=1.1.19
+pkgver=1.1.20
 pkgrel=1
 pkgdesc="A terminal based Jabber MUC client with support for encrypted and invisible messages"
 arch=("any")
