@@ -1522,7 +1522,8 @@ if __name__ == "__main__":
 		send(text)
 
 	@help(synopsis="/morse text", description="Encodes the text to morse",
-			args={  "text": "the text you want to encrypt" })
+			args={  "text": "the text you want to encrypt" },
+			see=["/morsex"])
 	def _morse(msg):
 		text = ""
 		for letter in msg.upper():
@@ -1532,6 +1533,22 @@ if __name__ == "__main__":
 				text = text + chars_to_morse["?"]
 			text = text + " "
 		send(text)
+	@help(synopsis="/morsex [p|e|q] text", description="Encodes the text "
+			"into morse code.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/morse"])
+	def _morsex(m, msg):
+		text = ""
+		for letter in msg.upper():
+			if letter in chars_to_morse:
+				text = text + chars_to_morse[letter]
+			elif not letter == " ":
+				text = text + chars_to_morse["?"]
+			text = text + " "
+		send_mode(m, text)
 
 
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
@@ -1597,6 +1614,7 @@ if __name__ == "__main__":
 	add_command("binex", _binex)
 	add_command("1337", _1337)
 	add_command("morse", _morse)
+	add_command("morsex", _morsex)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
