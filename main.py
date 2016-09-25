@@ -1501,12 +1501,26 @@ if __name__ == "__main__":
 
 	@help(synopsis="/1337 text", description="Encodes the text using "
 			"1337-5p34k",
-			args={  "text": "the text you want to encrypt"})
+			args={  "text": "the text you want to encrypt"},
+			see=["/1337x"])
 	def _1337(msg):
 		text = msg.translate(str.maketrans(
 			'ABCDEFGHIJKLMNOPQRSTUVQXYZabcdefghijklmnopqrstuvwxyz',
 			'48(D3FGH1JKLMN0PQR57UVWXYZ48(d3fgh1jklmn0pqr57uvwxyz'))
 		send(text)
+
+	@help(synopsis="/1337x [p|e|q] text", description="Encodes the text "
+			"using 1337-5p34k",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/1337"])
+	def _1337x(m, msg):
+		text = msg.translate(str.maketrans(
+			'ABCDEFGHIJKLMNOPQRSTUVQXYZabcdefghijklmnopqrstuvwxyz',
+			'48(D3FGH1JKLMN0PQR57UVWXYZ48(d3fgh1jklmn0pqr57uvwxyz'))
+		send_mode(m, text)
 
 	@help(synopsis="/morse text", description="Encodes the text to morse",
 			args={  "text": "the text you want to encrypt" },
@@ -1600,6 +1614,7 @@ if __name__ == "__main__":
 	add_command("lulux", _lulux)
 	add_command("binex", _binex)
 	add_command("1337", _1337)
+	add_command("1337x", _1337x)
 	add_command("morse", _morse)
 	add_command("morsex", _morsex)
 
