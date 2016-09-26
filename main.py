@@ -13,6 +13,7 @@ import rl
 import rp
 import json
 import rot
+import morse
 from optparse import OptionParser
 from getpass import getpass
 from random import randint, shuffle
@@ -76,22 +77,6 @@ encrypted_section_info = "[Dieser Teil der Nachricht ist nur für " \
 
 url_regex = re.compile(r'(https?|ftps?|ssh|sftp|irc|xmpp)://([a-zA-Z0-9]+)')
 jid_regex = re.compile(r'[a-zA-Z0-9]+@(?:[a-zA-Z0-9]+\.)+[a-zA-Z0-9]+(?:/.*)?')
-
-chars_to_morse = {"A": "·−", "B": "−···", "C": "−·−·", "D": "−··", "E": "·",
-		"F": "··−·", "G": "−−·", "H": "····", "I": "··", "J": "·−−−",
-		"K": "−·−", "L": "·−··", "M": "−−", "N": "−·", "O": "−−−", "P":
-		"·−−·", "Q": "−−·−", "R": "·−·", "S": "···", "T": "−", "U":
-		"··−", "V": "···−", "W": "·−−", "X": "−··−", "Y": "−·−−", "Z":
-		"−−··", "1": "·−−−−", "2": "··−−−", "3": "···−−", "4": "····−",
-		"5": "·····", "6": "−····", "7": "−−···", "8": "−−−··", "9":
-		"−−−−·", "0": "−−−−−", "À": "·−−·−", "Ä": "·−·−", "È": "·−··−",
-		"É": "··−··", "Ö": "−−−·", "Ü": "··−−", "ß": "···−−··", "CH":
-		"−−−−", "Ñ": "−−·−−", ".": "·−·−·−", ",": "−−··−−", ":":
-		"−−−···", ";": "−·−·−·", "?": "··−−··", "-": "−····−", "_":
-		"··−−·−", "(": "−·−−·", ")": "−·−−·−", "'": "·−−−−·", "=":
-		"−···−", "+": "·−·−·", "/": "−··−·", "@": "·−−·−·",
-		"!": "−·−·−−", '"': "·−··−·", "$": "···−··−"}
-morse_to_chars = {chars_to_morse[key]: key for key in chars_to_morse}
 
 longest = 0
 rpad = False
@@ -731,13 +716,7 @@ if __name__ == "__main__":
 					except UnicodeDecodeError:
 						pass
 			if morse_regex.match(msg) is not None:
-				tmp = ""
-				for letter in msg.replace(".","·").replace("-","−").split(" "):
-					if len(letter) == 0:
-						tmp = tmp + " "
-					elif letter in morse_to_chars:
-						tmp = tmp + \
-							morse_to_chars[letter]
+				tmp = morse.decode(msg)
 				if len(msg.split(" ")) == len(tmp):
 					msg = tmp.lower()
 					show("morse: %s" % msg)
@@ -1526,14 +1505,7 @@ if __name__ == "__main__":
 			args={  "text": "the text you want to encrypt" },
 			see=["/morsex"])
 	def _morse(msg):
-		text = ""
-		for letter in msg.upper():
-			if letter in chars_to_morse:
-				text = text + chars_to_morse[letter]
-			elif not letter == " ":
-				text = text + chars_to_morse["?"]
-			text = text + " "
-		send(text)
+		send(morse.encode(msg))
 	@help(synopsis="/morsex [p|e|q] text", description="Encodes the text "
 			"into morse code.",
 			args={	"p":	"send this message as plaintext",
@@ -1542,14 +1514,7 @@ if __name__ == "__main__":
 				"text":	"the text you want to encrypt"},
 			see=["/morse"])
 	def _morsex(m, msg):
-		text = ""
-		for letter in msg.upper():
-			if letter in chars_to_morse:
-				text = text + chars_to_morse[letter]
-			elif not letter == " ":
-				text = text + chars_to_morse["?"]
-			text = text + " "
-		send_mode(m, text)
+		send_mode(m, morse.encode(msg))
 
 
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
