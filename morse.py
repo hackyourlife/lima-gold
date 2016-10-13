@@ -47,4 +47,4 @@ def decode(msg):
 			tmp.append(" ")
 		elif letter in MORSE_TO_CHARS:
 			tmp.append(MORSE_TO_CHARS[letter])
-	return "".join(tmp).lower()
+	return "".join(tmp).lower().strip()
