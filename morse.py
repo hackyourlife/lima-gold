@@ -4,6 +4,8 @@
 Functions to encode and decode morse code
 """
 
+import re
+strip = re.compile("\s{2,}")
 
 CHARS_TO_MORSE = {"A": "·−", "B": "−···", "C": "−·−·", "D": "−··", "E": "·",
 		"F": "··−·", "G": "−−·", "H": "····", "I": "··", "J": "·−−−",
@@ -47,4 +49,14 @@ def decode(msg):
 			tmp.append(" ")
 		elif letter in MORSE_TO_CHARS:
 			tmp.append(MORSE_TO_CHARS[letter])
-	return "".join(tmp).lower().strip()
+	return strip.sub(" ", "".join(tmp).lower().strip())
+
+def valid(msg):
+	"""
+	Check if a string contains morse code
+	"""
+	msg = strip.sub("  ", msg.strip()) # 2 or more spaces -> 2 spaces
+	tmp = decode(msg)
+	if len(msg.split(" ")) == len(tmp):
+		return True
+	return False

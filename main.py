@@ -611,7 +611,7 @@ if __name__ == "__main__":
 	bits_regex = re.compile(r"^[01\s]+$")
 	lulu_regex = re.compile(r"^[lu\s]+$")
 	hex_regex = re.compile(r"^[0-9a-fA-F]+$")
-	morse_regex = re.compile(r"^[ −·\.-]+$")
+	morse_regex = re.compile(r"^[\s−·\.-]+$")
 	strip_regex = re.compile(r"[:\s-]")
 	is_printable = lambda x: x >= 32
 	printable = lambda x: ord(".") if x < 32 else x
@@ -644,6 +644,11 @@ if __name__ == "__main__":
 		last = msg
 		while True:
 			stripped = strip_regex.sub("", msg)
+			if morse_regex.match(msg) is not None:
+				if morse.valid(msg):
+					tmp = morse.decode(msg)
+					msg = tmp.lower()
+					show("morse: %s" % msg)
 			if bits_regex.match(stripped) is not None \
 					and len(stripped) % 8 == 0:
 				try:
@@ -715,11 +720,6 @@ if __name__ == "__main__":
 						show("hex: %s" % msg)
 					except UnicodeDecodeError:
 						pass
-			if morse_regex.match(msg) is not None:
-				tmp = morse.decode(msg)
-				if len(msg.split(" ")) == len(tmp):
-					msg = tmp.lower()
-					show("morse: %s" % msg)
 			if last == msg:
 				break
 			last = msg
