@@ -649,6 +649,7 @@ if __name__ == "__main__":
 					tmp = morse.decode(msg)
 					msg = tmp.lower()
 					show("morse: %s" % msg)
+					stripped = strip_regex.sub("", msg)
 			if bits_regex.match(stripped) is not None \
 					and len(stripped) % 8 == 0:
 				try:
