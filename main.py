@@ -14,6 +14,7 @@ import rp
 import json
 import rot
 import morse
+import random_quote
 from optparse import OptionParser
 from getpass import getpass
 from random import randint, shuffle
@@ -425,7 +426,7 @@ if __name__ == "__main__":
 	config = configparser.SafeConfigParser()
 	cfgfiles = config.read(filenames)
 
-	for section in [ "xmpp", "client", "ui", "messages" ]:
+	for section in [ "xmpp", "client", "ui", "messages", "random_quote" ]:
 		if not config.has_section(section):
 			config.add_section(section)
 
@@ -462,6 +463,15 @@ if __name__ == "__main__":
 	if options.section is not None:
 		config.set("messages", "encrypted_section", options.section)
 
+	if len(config.options("random_quote")) == 0:
+		if os.path.isfile("/usr/share/lima-gold/bofh_excuses.txt"):
+			config.set("random_quote", "bofh",
+					'"/usr/share/lima-gold/'
+					'bofh_excuses.txt"')
+		elif os.path.isfile("./bofh_excuses.txt"):
+			config.set("random_quote", "bofh",
+					'"./bofh_excuses.txt"')
+
 	msg_decode = options.msgdecode
 	espeak_voice = options.voice
 
@@ -482,6 +492,9 @@ if __name__ == "__main__":
 			snd.write(result)
 			return 0
 		espeak.set_synth_callback(synth_cb)
+
+	if config.has_section("random_quote"):
+		random_quote.init(config)
 
 	jid = config.get("xmpp", "jid")
 	try:
@@ -1517,6 +1530,39 @@ if __name__ == "__main__":
 	def _morsex(m, msg):
 		send_mode(m, morse.encode(msg))
 
+	@help(synopsis="/rq [?|<list>]", description="Sends a random quote",
+			args={  "?":	"List all lists",
+				"list": "Specify list"},
+			see=["/rqx"])
+	def _rq(lst=None):
+		if lst == "?":
+			show("Available lists: %s" % ",	".join(
+				random_quote.get_lists()))
+		else:
+			quote = random_quote.random_quote(lst)
+			if quote == None:
+				show("List not fount! :-(")
+			else:
+				send(quote)
+	@help(synopsis="/rqx [p|e|q] [?|<list>]", description="Sends a"
+			"random quote",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"?":	"List all lists",
+				"list": "Specify list"},
+			see=["/rq"])
+	def _rqx(m, lst=None):
+		if lst == "?":
+			show("Available lists: %s" % ",	".join(
+				random_quote.get_lists()))
+		else:
+			quote = random_quote.random_quote(lst)
+			if quote == None:
+				show("List not fount! :-(")
+			else:
+				send_mode(m, quote)
+
 
 	@help(synopsis="/binex [p|e|q] 01 text", description="Encodes the text "
 			"into a bitstring, but with a different alphabet. This "
@@ -1583,6 +1629,8 @@ if __name__ == "__main__":
 	add_command("1337x", _1337x)
 	add_command("morse", _morse)
 	add_command("morsex", _morsex)
+	add_command("rq", _rq)
+	add_command("rqx", _rqx)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)

@@ -15,3 +15,6 @@ mode = plain
 rpadnicks = False
 colors = True
 timestamps = True
+
+[random_quote]
+bofh = "/usr/share/lima-gold/bofh_excuses.txt"
