@@ -16,5 +16,12 @@ rpadnicks = False
 colors = True
 timestamps = True
 
-[random_quote]
-bofh = "/usr/share/lima-gold/bofh_excuses.txt"
+;[random_quote]
+; random quotes are stores in lists, each list can be defined as config option
+; here. Either as plain string (with and without quotes) or a json list. Each
+; line of the file ist considered a single quote (right now there's no support
+; for multi-column quotes).
+; The following line is the default if there's no config for random_quote:
+;bofh = "/usr/share/lima-gold/bofh_excuses.txt"
+; Example using a list:
+;chuck_norris = ["~/chuck_norris.txt", "/opt/more_chuck_norris_facts.txt"]
