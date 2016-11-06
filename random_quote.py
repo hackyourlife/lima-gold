@@ -16,8 +16,12 @@ def init(config):
 			config_path = json.loads(config.get("random_quote",
 				option))
 		except:
-			print("Invalid json in config: " +
+			config_path = os.path.expanduser(
 					config.get("random_quote", option))
+			if(not os.path.isfile(config_path)):
+				print("Invalid json in config: " +
+					config.get("random_quote", option))
+				continue
 		if not isinstance(config_path, list):
 			config_path = [config_path]
 		qs = []
