@@ -1588,6 +1588,31 @@ if __name__ == "__main__":
 		text = text.translate(str.maketrans("01", letters))
 		send_mode(m, text)
 
+	@help(synopsis="/w text", description="Encodes the text into fullwidth"
+			" utf characters. This can be used to annoy blind "
+			"participants which use screen readers.",
+			args={	"text":	"the text you want to encrypt"},
+			see=["/wx"])
+	def _w(msg):
+		trans_in = "".join([ chr(i) for i in range(0x21, 0x7E) ])
+		trans_out = "".join([ chr(i) for i in range(0xFF01, 0xFF5E) ])
+		text = msg.translate(str.maketrans(trans_in, trans_out))
+		send(text)
+
+	@help(synopsis="/wx [p|e|q] text", description="Encodes the text into "
+			"fullwidth utf characters. This can be used to annoy "
+			"blind participants which use screen readers.",
+			args={	"p":	"send this message as plaintext",
+				"e":	"send this message in encrypted form",
+				"q":	"send this as a stealth message",
+				"text":	"the text you want to encrypt"},
+			see=["/w"])
+	def _wx(m, msg):
+		trans_in = "".join([ chr(i) for i in range(0x21, 0x7E) ])
+		trans_out = "".join([ chr(i) for i in range(0xFF01, 0xFF5E) ])
+		text = msg.translate(str.maketrans(trans_in, trans_out))
+		send_mode(m, text)
+
 	add_command("help", _help)
 	add_command("encrypt", _encrypt)
 	add_command("plain", _plain)
@@ -1631,6 +1656,8 @@ if __name__ == "__main__":
 	add_command("morsex", _morsex)
 	add_command("rq", _rq)
 	add_command("rqx", _rqx)
+	add_command("w", _w)
+	add_command("wx", _wx)
 
 	xmpp.add_message_listener(muc_msg)
 	xmpp.add_mention_listener(muc_mention)
