@@ -26,7 +26,7 @@ package() {
   python setup.py install --root="$pkgdir/" --install-lib /usr/share/lima-gold --optimize=1
   mkdir -p "$pkgdir/usr/bin"
   ln -s /usr/share/lima-gold/main.py "$pkgdir/usr/bin/lima-gold"
-  rm "$pkgdir/usr/share/lima-gold/lima_gold-1.0-py3.5.egg-info"
+  rm "$pkgdir/usr/share/lima-gold/lima_gold-1.0-py3.6.egg-info"
   chmod 0755 "$pkgdir/usr/share/lima-gold/main.py"
   install -m644 bofh_excuses.txt "$pkgdir/usr/share/lima-gold/bofh_excuses.txt"
 }
