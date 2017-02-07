@@ -411,6 +411,7 @@ if __name__ == "__main__":
 			action="store_false",
 			help="Disable join-time join messages")
 	parser.add_option("-V", "--voice", dest="voice", help="Voice name")
+	parser.add_option("--ipv4", action="store_false", dest="ipv6", help="Use IPv4 only")
 	(options, args) = parser.parse_args()
 
 
@@ -440,6 +441,8 @@ if __name__ == "__main__":
 		config.set("xmpp", "nick", options.nick)
 	if options.key is not None:
 		config.set("xmpp", "key", options.key)
+	if options.ipv6 is not None:
+		config.set("client", "ipv6", str(options.ipv6))
 	if options.log is not None:
 		config.set("client", "logfile", options.log)
 	if options.bell is not None:
@@ -504,9 +507,11 @@ if __name__ == "__main__":
 	room = config.get("xmpp", "room")
 	nick = config.get("xmpp", "nick")
 	key = config.get("xmpp", "key", fallback=None)
+	
 	logfile_name = os.path.expanduser(config.get("client", "logfile",
 			fallback="xmpp.log"))
 	enable_bell = config.getboolean("client", "bell", fallback=False)
+	ipv6 = config.getboolean("client", "ipv6", fallback=True)
 	default_mode = config.get("client", "mode", fallback="plain")
 	history = config.getboolean("client", "history", fallback=True)
 	join_log = config.getboolean("client", "joinlog", fallback=True)
@@ -534,7 +539,7 @@ if __name__ == "__main__":
 		caesar_lang = "en"
 
 	xmpp = Client(jid, password, room, nick, key, history=history,
-			encrypted_msg_info=encrypted_message_info)
+			encrypted_msg_info=encrypted_message_info, ipv6=ipv6)
 	xmpp.register_plugin("xep_0030") # Service Discovery
 	xmpp.register_plugin("xep_0045") # Multi-User Chat
 	xmpp.register_plugin("xep_0199") # XMPP Ping

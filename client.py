@@ -29,9 +29,10 @@ class Client(sleekxmpp.ClientXMPP):
 	STEALTH = 2
 
 	def __init__(self, jid, password, room, nick, key=None, log=None,
-			history=False, encrypted_msg_info="[encrypted]"):
+			history=False, encrypted_msg_info="[encrypted]", ipv6=True):
 		sleekxmpp.ClientXMPP.__init__(self, jid, password)
 
+		self.use_ipv6 = ipv6
 		self.room = room
 		self.nick = nick
 		self.online = False
